@@ -1,0 +1,190 @@
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Ciclometria para Agendamento</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo-container">
+                <h1>CicloConsult</h1>
+                <p class="tagline">Sistema de Agendamento Ciclométrico</p>
+            </div>
+            <div class="header-controls">
+                <button id="prev-cycle" class="btn btn-outline-primary"><i class="bi bi-arrow-left"></i> Ciclo Anterior</button>
+                <span id="current-cycle" class="cycle-indicator">Ciclo Atual</span>
+                <button id="next-cycle" class="btn btn-outline-primary">Próximo Ciclo <i class="bi bi-arrow-right"></i></button>
+            </div>
+        </header>
+
+        <main>
+            <div class="dashboard">
+                <div class="metrics-panel">
+                    <div class="metric-card">
+                        <div class="metric-value" id="total-clients">0/21</div>
+                        <div class="metric-label">Clientes Totais</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="partner-slots">0/7</div>
+                        <div class="metric-label">Slots Parceiros</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="multiplier-slots">0/7</div>
+                        <div class="metric-label">Slots Multiplicadores</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="reserve-slots">0/7</div>
+                        <div class="metric-label">Slots Reserva</div>
+                    </div>
+                </div>
+
+                <div class="cycle-view">
+                    <div class="cycle-weeks">
+                        <div class="week-container" id="week1">
+                            <h3>Semana 1</h3>
+                            <div class="weekdays">
+                                <div class="weekday" data-day="Terça" data-week="1">
+                                    <h4>Terça-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                                <div class="weekday" data-day="Quarta" data-week="1">
+                                    <h4>Quarta-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                                <div class="weekday" data-day="Quinta" data-week="1">
+                                    <h4>Quinta-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="week-container" id="week2">
+                            <h3>Semana 2</h3>
+                            <div class="weekdays">
+                                <div class="weekday" data-day="Terça" data-week="2">
+                                    <h4>Terça-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                                <div class="weekday" data-day="Quarta" data-week="2">
+                                    <h4>Quarta-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                                <div class="weekday" data-day="Quinta" data-week="2">
+                                    <h4>Quinta-feira</h4>
+                                    <div class="slots"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="actions-panel">
+            <button id="add-client" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Novo Agendamento</button>
+            <button id="export-data" class="btn btn-success"><i class="bi bi-download"></i> Exportar Agenda</button>
+            <button id="settings-btn" class="btn btn-secondary"><i class="bi bi-gear"></i> Configurações</button>
+        </div>
+
+        <!-- Modal para adicionar cliente -->
+        <div class="modal" id="client-modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Novo Agendamento</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="client-form">
+                            <div class="mb-3">
+                                <label for="client-name" class="form-label">Nome do Cliente</label>
+                                <input type="text" class="form-control" id="client-name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="client-type" class="form-label">Tipo de Cliente</label>
+                                <select class="form-select" id="client-type" required>
+                                    <option value="">Selecione o tipo</option>
+                                    <option value="partner">Parceiro</option>
+                                    <option value="multiplier">Multiplicador</option>
+                                    <option value="reserve">Reserva</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="slot-select" class="form-label">Selecione o Horário</label>
+                                <select class="form-select" id="slot-select" required>
+                                    <option value="">Selecione o horário</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="client-notes" class="form-label">Observações</label>
+                                <textarea class="form-control" id="client-notes" rows="3"></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="save-client">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para configurações -->
+        <div class="modal" id="settings-modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Configurações</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="settings-form">
+                            <div class="mb-3">
+                                <label class="form-label">Horários de Atendimento</label>
+                                <div id="time-slots-container">
+                                    <div class="time-slot-row">
+                                        <input type="time" class="form-control time-slot-input" value="09:00">
+                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                    <div class="time-slot-row">
+                                        <input type="time" class="form-control time-slot-input" value="10:30">
+                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                    <div class="time-slot-row">
+                                        <input type="time" class="form-control time-slot-input" value="14:00">
+                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                    <div class="time-slot-row">
+                                        <input type="time" class="form-control time-slot-input" value="15:30">
+                                        <button type="button" class="btn btn-sm btn-danger remove-time-slot"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary mt-2" id="add-time-slot">
+                                    <i class="bi bi-plus"></i> Adicionar Horário
+                                </button>
+                            </div>
+                            <div class="mb-3">
+                                <label for="cycle-start-date" class="form-label">Data de Início do Ciclo Atual</label>
+                                <input type="date" class="form-control" id="cycle-start-date">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="save-settings">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
