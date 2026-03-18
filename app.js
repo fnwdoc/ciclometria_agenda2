@@ -520,6 +520,111 @@ document.addEventListener('DOMContentLoaded', function() {
         XLSX.writeFile(wb, fileName);
     }
     
+    // Import schedule data from Excel
+    function importFromExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                // Assuming first sheet is the "Agenda" sheet
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Parse sheet to JSON array of arrays
+                const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                // Find the header row index (where "Data" is)
+                let headerRowIdx = -1;
+                for (let i = 0; i < json.length; i++) {
+                    if (json[i] && json[i][0] === 'Data' && json[i][1] === 'Horário') {
+                        headerRowIdx = i;
+                        break;
+                    }
+                }
+                
+                if (headerRowIdx === -1) {
+                    alert('Formato de arquivo inválido. Não foi possível encontrar o cabeçalho "Data" e "Horário".');
+                    return;
+                }
+                
+                let importCount = 0;
+                let errorCount = 0;
+                
+                // Process each row after the header
+                for (let i = headerRowIdx + 1; i < json.length; i++) {
+                    const row = json[i];
+                    if (!row || row.length < 4 || !row[0] || !row[1]) continue; // Skip empty/invalid rows
+                    
+                    const dateStr = row[0]; // e.g. "20/03/2026"
+                    const timeStr = row[1]; // e.g. "09:00"
+                    const clientName = row[2];
+                    const typeLabel = row[3];
+                    const notes = row[4] || '';
+                    
+                    // Parse Brazilian date format back to moment
+                    const dateTime = moment(`${dateStr} ${timeStr}`, 'DD/MM/YYYY HH:mm');
+                    
+                    if (!dateTime.isValid()) {
+                        errorCount++;
+                        continue;
+                    }
+                    
+                    // Reverse map type label to type key
+                    let clientType = 'partner'; // default fallback
+                    if (typeLabel === appState.clientTypes.multiplier.label) clientType = 'multiplier';
+                    else if (typeLabel === appState.clientTypes.reserve.label) clientType = 'reserve';
+                    
+                    // Check if there is already an appointment exactly at this time
+                    const existingIdx = appState.clients.findIndex(c => moment(c.date).isSame(dateTime));
+                    
+                    if (existingIdx !== -1) {
+                        // Replace existing appointment
+                        appState.clients[existingIdx] = {
+                            id: appState.clients[existingIdx].id,
+                            name: clientName,
+                            type: clientType,
+                            date: dateTime.format(),
+                            notes: notes
+                        };
+                    } else {
+                        // Add new appointment
+                        appState.clients.push({
+                            id: generateId(),
+                            name: clientName,
+                            type: clientType,
+                            date: dateTime.format(),
+                            notes: notes
+                        });
+                    }
+                    importCount++;
+                }
+                
+                if (importCount > 0) {
+                    saveState();
+                    updateMetrics();
+                    renderCalendar();
+                    alert(`Importação concluída: ${importCount} agendamentos importados/atualizados. ${errorCount > 0 ? '(' + errorCount + ' ignorados por erro)' : ''}`);
+                } else {
+                    alert('Nenhum agendamento válido encontrado para importar.');
+                }
+                
+            } catch (error) {
+                console.error('Error importing Excel:', error);
+                alert('Ocorreu um erro ao processar o arquivo. Verifique se é uma planilha exportada por este sistema.');
+            }
+            
+            // Clear input value so it can trigger change again on the same file
+            document.getElementById('import-file').value = '';
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
+    
     // Event Listeners
     
     // Previous cycle button
@@ -552,6 +657,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Export data button
     document.getElementById('export-data').addEventListener('click', exportToExcel);
+    
+    // Import data sequence
+    document.getElementById('import-data-btn').addEventListener('click', function() {
+        document.getElementById('import-file').click();
+    });
+    
+    document.getElementById('import-file').addEventListener('change', importFromExcel);
     
     // Settings button
     document.getElementById('settings-btn').addEventListener('click', function() {
