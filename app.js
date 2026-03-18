@@ -218,10 +218,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // Create slot element
                     const slotElement = document.createElement('div');
-                    slotElement.className = client ? `slot ${client.type}` : 'slot empty';
+                    slotElement.className = client ? `slot ${client.type} draggable` : 'slot empty';
                     slotElement.dataset.datetime = slotDateTime.format();
                     
                     if (client) {
+                        slotElement.draggable = true;
+                        slotElement.dataset.clientId = client.id;
                         slotElement.innerHTML = `
                             <div class="slot-time">${timeSlot}</div>
                             <div class="slot-client">${client.name}</div>
@@ -253,6 +255,81 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add event listeners to the slots
     function addSlotEventListeners() {
+        // Drag and Drop implementation
+        const slots = document.querySelectorAll('.slot');
+        
+        slots.forEach(slot => {
+            // Drag Start
+            slot.addEventListener('dragstart', function(e) {
+                if (!this.dataset.clientId) return; // Only drag occupied slots
+                this.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', this.dataset.clientId);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            
+            // Drag End
+            slot.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                document.querySelectorAll('.slot').forEach(s => s.classList.remove('drag-over'));
+            });
+            
+            // Drag Enter & Over
+            slot.addEventListener('dragover', function(e) {
+                e.preventDefault(); // necessary to allow dropping
+                e.dataTransfer.dropEffect = 'move';
+                if (!this.classList.contains('dragging')) {
+                    this.classList.add('drag-over');
+                }
+            });
+            
+            // Drag Leave
+            slot.addEventListener('dragleave', function() {
+                this.classList.remove('drag-over');
+            });
+            
+            // Drop
+            slot.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('drag-over');
+                
+                const draggedClientId = e.dataTransfer.getData('text/plain');
+                if (!draggedClientId) return;
+                
+                const targetDateTime = this.dataset.datetime;
+                
+                // Find dragged client
+                const draggedClientIndex = appState.clients.findIndex(c => c.id === draggedClientId);
+                if (draggedClientIndex === -1) return;
+                
+                const draggedClient = appState.clients[draggedClientIndex];
+                
+                // Find if there's an existing client in the target slot
+                const targetClientIndex = appState.clients.findIndex(c => 
+                    moment(c.date).isSame(moment(targetDateTime))
+                );
+                
+                // Prevent dropping onto itself
+                if (targetClientIndex !== -1 && appState.clients[targetClientIndex].id === draggedClientId) {
+                    return;
+                }
+                
+                if (targetClientIndex !== -1) {
+                    // Swap scenario: Target slot is occupied
+                    const targetClient = appState.clients[targetClientIndex];
+                    const targetOldDate = targetClient.date;
+                    targetClient.date = draggedClient.date;
+                    draggedClient.date = targetOldDate;
+                } else {
+                    // Move scenario: Target slot is empty
+                    draggedClient.date = targetDateTime;
+                }
+                
+                saveState();
+                updateMetrics();
+                renderCalendar();
+            });
+        });
+
         // Add new appointment from slot
         document.querySelectorAll('.add-appointment').forEach(button => {
             button.addEventListener('click', function() {
@@ -263,7 +340,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Edit appointment
         document.querySelectorAll('.edit-appointment').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation(); // prevent triggering parent clicks or drags
                 const clientId = this.dataset.id;
                 const client = appState.clients.find(c => c.id === clientId);
                 if (client) {
@@ -274,7 +352,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Delete appointment
         document.querySelectorAll('.delete-appointment').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation(); // prevent triggering parent clicks or drags
                 const clientId = this.dataset.id;
                 if (confirm('Tem certeza que deseja excluir este agendamento?')) {
                     appState.clients = appState.clients.filter(c => c.id !== clientId);
