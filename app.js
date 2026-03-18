@@ -122,30 +122,43 @@ document.addEventListener('DOMContentLoaded', function() {
             reserve: uniqueNames.reserve.size
         };
         
-        // Update the UI
-        totalClientsElement.textContent = `${clientCounts.total}/21`;
-        partnerSlotsElement.textContent = `${clientCounts.partner}/${appState.clientTypes.partner.limit}`;
-        multiplierSlotsElement.textContent = `${clientCounts.multiplier}/${appState.clientTypes.multiplier.limit}`;
-        reserveSlotsElement.textContent = `${clientCounts.reserve}/${appState.clientTypes.reserve.limit}`;
+        // Get dynamic milestone limits for each category based on the new logic
+        const getMilestone = (count) => {
+            if (count < 7) return 7;
+            if (count < 14) return 14;
+            return 21;
+        };
         
-        // Add color indicators based on capacity
-        colorizeMetric(totalClientsElement, clientCounts.total, 21);
-        colorizeMetric(partnerSlotsElement, clientCounts.partner, appState.clientTypes.partner.limit);
-        colorizeMetric(multiplierSlotsElement, clientCounts.multiplier, appState.clientTypes.multiplier.limit);
-        colorizeMetric(reserveSlotsElement, clientCounts.reserve, appState.clientTypes.reserve.limit);
+        const totalMilestone = getMilestone(clientCounts.total);
+        const partnerMilestone = getMilestone(clientCounts.partner);
+        const multiplierMilestone = getMilestone(clientCounts.multiplier);
+        const reserveMilestone = getMilestone(clientCounts.reserve);
+        
+        // Update the UI
+        totalClientsElement.textContent = `${clientCounts.total}/${totalMilestone}`;
+        partnerSlotsElement.textContent = `${clientCounts.partner}/${partnerMilestone}`;
+        multiplierSlotsElement.textContent = `${clientCounts.multiplier}/${multiplierMilestone}`;
+        reserveSlotsElement.textContent = `${clientCounts.reserve}/${reserveMilestone}`;
+        
+        // Add color indicators based on capacity milestones
+        colorizeMetric(totalClientsElement, clientCounts.total);
+        colorizeMetric(partnerSlotsElement, clientCounts.partner);
+        colorizeMetric(multiplierSlotsElement, clientCounts.multiplier);
+        colorizeMetric(reserveSlotsElement, clientCounts.reserve);
     }
     
-    // Add color to metrics based on capacity
-    function colorizeMetric(element, current, max) {
+    // Add color to metrics based on absolute milestones
+    function colorizeMetric(element, current) {
         element.classList.remove('text-success', 'text-warning', 'text-danger');
         
-        const percentage = (current / max) * 100;
-        
-        if (percentage < 70) {
+        if (current <= 7) {
+            // Ideal
             element.classList.add('text-success');
-        } else if (percentage < 90) {
+        } else if (current <= 14) {
+            // Maximum / Warning
             element.classList.add('text-warning');
         } else {
+            // Critical / Danger
             element.classList.add('text-danger');
         }
     }
@@ -506,8 +519,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add the current name being saved to see if it exceeds
         uniqueNamesOfType.add(normalizedName);
         
-        if (uniqueNamesOfType.size > typeLimit) {
-            alert(`Limite de ${typeLimit} clientes únicos do tipo ${appState.clientTypes[clientType].label} atingido neste ciclo.`);
+        if (uniqueNamesOfType.size >= 21) {
+            alert(`Limite absoluto (21) clientes únicos do tipo ${appState.clientTypes[clientType].label} atingido neste ciclo.`);
             return;
         }
         
