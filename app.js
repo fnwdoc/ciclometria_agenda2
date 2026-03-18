@@ -49,6 +49,18 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('cicloConsultState', JSON.stringify(appState));
     }
     
+    // Helper function to show Bootstrap toast notifications
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('app-toast');
+        const toastMessage = document.getElementById('toast-message');
+        
+        toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+        toastMessage.textContent = message;
+        
+        const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+    }
+
     // Initialize UI
     function initializeUI() {
         updateCycleDisplay();
@@ -813,9 +825,9 @@ document.addEventListener('DOMContentLoaded', function() {
             saveState();
             updateMetrics();
             renderCalendar();
-            alert(`Foram copiados ${copiedCount} agendamentos com sucesso!`);
+            showToast(`Foram repetidos ${copiedCount} agendamentos com sucesso nas mesmas posições do ciclo atual!`);
         } else {
-            alert('Nenhum agendamento foi copiado. Os horários podem já estar ocupados ou os limites de ciclo foram atingidos.');
+            showToast('Nenhum agendamento foi copiado. Os horários podem já estar ocupados ou os limites de ciclo foram atingidos.', 'warning');
         }
     });
 
