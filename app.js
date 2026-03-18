@@ -750,6 +750,75 @@ document.addEventListener('DOMContentLoaded', function() {
     // Export data button
     document.getElementById('export-data').addEventListener('click', exportToExcel);
     
+    // Copy previous cycle button
+    document.getElementById('copy-prev-cycle').addEventListener('click', function() {
+        if (!confirm('Deseja copiar os clientes do ciclo anterior para os horários equivalentes no ciclo atual? (Horários já ocupados não serão substituídos).')) {
+            return;
+        }
+
+        const prevStartDate = appState.currentCycle.startDate.clone().subtract(14, 'days');
+        const prevEndDate = appState.currentCycle.endDate.clone().subtract(14, 'days');
+        
+        // Find clients from the previous cycle
+        const prevClients = appState.clients.filter(client => {
+            const appointmentDate = moment(client.date);
+            return appointmentDate.isBetween(prevStartDate, prevEndDate, null, '[]');
+        });
+        
+        if (prevClients.length === 0) {
+            alert('Não há agendamentos no ciclo anterior para copiar.');
+            return;
+        }
+
+        let copiedCount = 0;
+
+        prevClients.forEach(prevClient => {
+            // Calculate the equivalent date in the current cycle (+14 days)
+            const newDate = moment(prevClient.date).add(14, 'days');
+            
+            // Check if slot is already occupied in the current cycle
+            const isOccupied = appState.clients.some(c => moment(c.date).isSame(newDate));
+            
+            if (!isOccupied) {
+                // Determine limits check against current cycle (needs unique name check)
+                const clientType = prevClient.type;
+                const normalizedName = prevClient.name.trim().toLowerCase();
+                const typeLimit = appState.clientTypes[clientType].limit;
+                
+                const uniqueNamesOfType = new Set();
+                appState.clients.forEach(c => {
+                    if (c.type === clientType && isClientInCurrentCycle(c)) {
+                        uniqueNamesOfType.add(c.name.trim().toLowerCase());
+                    }
+                });
+                
+                // If this specific person isn't already tracked in the limit, add them
+                uniqueNamesOfType.add(normalizedName);
+                
+                // Only copy if it doesn't violate absolute bounds
+                if (uniqueNamesOfType.size <= 21) {
+                    appState.clients.push({
+                        id: generateId(),
+                        name: prevClient.name,
+                        type: prevClient.type,
+                        date: newDate.format(),
+                        notes: prevClient.notes
+                    });
+                    copiedCount++;
+                }
+            }
+        });
+
+        if (copiedCount > 0) {
+            saveState();
+            updateMetrics();
+            renderCalendar();
+            alert(`Foram copiados ${copiedCount} agendamentos com sucesso!`);
+        } else {
+            alert('Nenhum agendamento foi copiado. Os horários podem já estar ocupados ou os limites de ciclo foram atingidos.');
+        }
+    });
+
     // Import data sequence
     document.getElementById('import-data-btn').addEventListener('click', function() {
         document.getElementById('import-file').click();
