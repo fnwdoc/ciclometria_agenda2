@@ -97,20 +97,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const multiplierSlotsElement = document.getElementById('multiplier-slots');
         const reserveSlotsElement = document.getElementById('reserve-slots');
         
-        // Count clients by type for the current cycle
-        const clientCounts = {
-            total: 0,
-            partner: 0,
-            multiplier: 0,
-            reserve: 0
+        // Count unique clients by type for the current cycle
+        const uniqueNames = {
+            total: new Set(),
+            partner: new Set(),
+            multiplier: new Set(),
+            reserve: new Set()
         };
         
         appState.clients.forEach(client => {
             if (isClientInCurrentCycle(client)) {
-                clientCounts.total++;
-                clientCounts[client.type]++;
+                const normalizedName = client.name.trim().toLowerCase();
+                uniqueNames.total.add(normalizedName);
+                if (uniqueNames[client.type]) {
+                    uniqueNames[client.type].add(normalizedName);
+                }
             }
         });
+        
+        const clientCounts = {
+            total: uniqueNames.total.size,
+            partner: uniqueNames.partner.size,
+            multiplier: uniqueNames.multiplier.size,
+            reserve: uniqueNames.reserve.size
+        };
         
         // Update the UI
         totalClientsElement.textContent = `${clientCounts.total}/21`;
@@ -402,19 +412,24 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Check if we're at capacity for this client type
-        if (!form.dataset.clientId) {  // Only check for new clients
-            const clientType = typeSelect.value;
-            const typeLimit = appState.clientTypes[clientType].limit;
-            
-            const clientsOfType = appState.clients.filter(c => 
-                c.type === clientType && isClientInCurrentCycle(c)
-            ).length;
-            
-            if (clientsOfType >= typeLimit) {
-                alert(`Limite de ${typeLimit} clientes do tipo ${appState.clientTypes[clientType].label} atingido.`);
-                return;
+        // Check if we're at capacity for this client type (unique names)
+        const clientType = typeSelect.value;
+        const normalizedName = nameInput.value.trim().toLowerCase();
+        const typeLimit = appState.clientTypes[clientType].limit;
+        
+        const uniqueNamesOfType = new Set();
+        appState.clients.forEach(c => {
+            if (c.type === clientType && isClientInCurrentCycle(c) && c.id !== form.dataset.clientId) {
+                uniqueNamesOfType.add(c.name.trim().toLowerCase());
             }
+        });
+        
+        // Add the current name being saved to see if it exceeds
+        uniqueNamesOfType.add(normalizedName);
+        
+        if (uniqueNamesOfType.size > typeLimit) {
+            alert(`Limite de ${typeLimit} clientes únicos do tipo ${appState.clientTypes[clientType].label} atingido neste ciclo.`);
+            return;
         }
         
         // Create or update client object
