@@ -3437,3 +3437,35 @@ window.switchView = function(view) {
     updateHeaderContexto();
 };
 
+
+// =========================================================================
+// AÇÕES — Drawer mobile
+// =========================================================================
+
+let acoesDrawerOpen = false;
+
+window.acoesToggleDrawer = function() {
+    const drawer = document.getElementById('acoes-drawer');
+    const overlay = document.getElementById('acoes-drawer-overlay');
+    if (!drawer) return;
+    acoesDrawerOpen = !acoesDrawerOpen;
+    drawer.style.transform = acoesDrawerOpen ? 'translateX(0)' : 'translateX(-100%)';
+    if (overlay) overlay.classList.toggle('hidden', !acoesDrawerOpen);
+    document.body.style.overflow = acoesDrawerOpen ? 'hidden' : '';
+};
+
+// Atualizar label mobile do contexto na aba Ações
+function updateAcoesMobileCtx() {
+    const el = document.getElementById('acoes-mobile-ctx');
+    if (!el) return;
+    const ctx = document.getElementById('selectComunidade')?.value;
+    el.textContent = (ctx && ctx !== 'null') ? '📍 ' + ctx : '';
+}
+
+// Fechar drawer ao trocar de view
+const _origSwitchViewDrawer = window.switchView;
+window.switchView = function(view) {
+    _origSwitchViewDrawer(view);
+    if (acoesDrawerOpen) window.acoesToggleDrawer();
+    if (view === 'acoes') updateAcoesMobileCtx();
+};
