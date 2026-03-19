@@ -3474,3 +3474,89 @@ window.switchView = function(view) {
     if (acoesDrawerOpen) window.acoesToggleDrawer();
     if (view === 'acoes') updateAcoesMobileCtx();
 };
+
+// =========================================================================
+// CRM — Exportação Excel
+// =========================================================================
+
+window.exportCRMExcel = function() {
+    if (!window.XLSX) {
+        window.showToast('SheetJS não carregado. Tente novamente.', 'warning');
+        return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    const hoje = moment();
+
+    // ── ABA 1: LEADS ──────────────────────────────────────────────────────
+    const statusLabels = { lead:'Lead', mql:'MQL', sql:'SQL', pql:'PQL', sal:'SAL', customer:'Cliente' };
+    const canalLabels  = { website:'Website', social:'Social Media', email:'Email', referral:'Referral', paid:'Paid Ads', indicacao:'Indicação', evento:'Evento' };
+
+    const leadsRows = (appState.leads || []).map(l => {
+        // Próximo atendimento do CRM
+        const proxAtend = (appState.clients || [])
+            .filter(c => c.name === l.nome && moment(c.date + 'T' + c.time).isSameOrAfter(hoje))
+            .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))[0];
+
+        return {
+            'Nome':               l.nome || '',
+            'Tipo':               l.tipo || '',
+            'Status':             statusLabels[l.status] || l.status || '',
+            'Canal':              canalLabels[l.canal] || l.canal || '',
+            'Score':              l.score || 0,
+            'Telefone':           l.telefone || '',
+            'Email':              l.email || '',
+            'Empresa':            l.empresa || '',
+            'Próx. Atendimento':  proxAtend ? moment(proxAtend.date).format('DD/MM/YYYY') + ' ' + proxAtend.time : '',
+            'Observações':        l.notas || '',
+            'Criado em':          l.createdAt ? moment(l.createdAt).format('DD/MM/YYYY') : ''
+        };
+    });
+
+    const wsLeads = XLSX.utils.json_to_sheet(leadsRows.length > 0 ? leadsRows : [{ 'Info': 'Nenhum lead cadastrado' }]);
+
+    // Larguras das colunas
+    wsLeads['!cols'] = [
+        {wch:30}, {wch:15}, {wch:12}, {wch:15}, {wch:8},
+        {wch:16}, {wch:28}, {wch:20}, {wch:20}, {wch:40}, {wch:14}
+    ];
+    XLSX.utils.book_append_sheet(wb, wsLeads, 'Leads');
+
+    // ── ABA 2: ATIVIDADES ─────────────────────────────────────────────────
+    const atividadesRows = (appState.crmActivities || [])
+        .sort((a,b) => moment(b.date).diff(moment(a.date)))
+        .map(a => ({
+            'Lead':       a.leadName || '',
+            'Tipo':       a.type || '',
+            'Descrição':  a.description || '',
+            'Data':       a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : ''
+        }));
+
+    const wsAtiv = XLSX.utils.json_to_sheet(atividadesRows.length > 0 ? atividadesRows : [{ 'Info': 'Nenhuma atividade registrada' }]);
+    wsAtiv['!cols'] = [{wch:30}, {wch:20}, {wch:50}, {wch:18}];
+    XLSX.utils.book_append_sheet(wb, wsAtiv, 'Atividades CRM');
+
+    // ── ABA 3: AGENDAMENTOS DO CRM ────────────────────────────────────────
+    // Só agendamentos que têm um lead correspondente
+    const nomesLeads = new Set((appState.leads || []).map(l => l.nome));
+    const agendCRM = (appState.clients || [])
+        .filter(c => nomesLeads.has(c.name))
+        .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))
+        .map(c => ({
+            'Nome':    c.name || '',
+            'Data':    c.date ? moment(c.date).format('DD/MM/YYYY') : '',
+            'Hora':    c.time || '',
+            'Tipo':    c.type || '',
+            'Status':  moment(c.date+'T'+c.time).isBefore(hoje) ? 'Realizado' : 'Futuro',
+            'Ciclo':   c.cycle || ''
+        }));
+
+    const wsAgend = XLSX.utils.json_to_sheet(agendCRM.length > 0 ? agendCRM : [{ 'Info': 'Nenhum agendamento de lead encontrado' }]);
+    wsAgend['!cols'] = [{wch:30}, {wch:14}, {wch:8}, {wch:15}, {wch:12}, {wch:25}];
+    XLSX.utils.book_append_sheet(wb, wsAgend, 'Agendamentos CRM');
+
+    // ── EXPORTAR ──────────────────────────────────────────────────────────
+    const fileName = 'GERiAH_CRM_' + moment().format('YYYY-MM-DD_HHmm') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    window.showToast('CRM exportado com ' + (appState.leads || []).length + ' leads!');
+};
