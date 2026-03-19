@@ -3493,23 +3493,23 @@ window.exportCRMExcel = function() {
     const canalLabels  = { website:'Website', social:'Social Media', email:'Email', referral:'Referral', paid:'Paid Ads', indicacao:'Indicação', evento:'Evento' };
 
     const leadsRows = (appState.leads || []).map(l => {
-        // Próximo atendimento do CRM
+        // Próximo atendimento do CRM — campo é lead.name
         const proxAtend = (appState.clients || [])
-            .filter(c => c.name === l.nome && moment(c.date + 'T' + c.time).isSameOrAfter(hoje))
+            .filter(c => c.name === l.name && moment(c.date + 'T' + c.time).isSameOrAfter(hoje))
             .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))[0];
 
         return {
-            'Nome':               l.nome || '',
-            'Tipo':               l.tipo || '',
+            'Nome':               l.name || '',
+            'Tipo':               l.type || '',
             'Status':             statusLabels[l.status] || l.status || '',
-            'Canal':              canalLabels[l.canal] || l.canal || '',
+            'Canal':              canalLabels[l.channel] || l.channel || '',
             'Score':              l.score || 0,
-            'Telefone':           l.telefone || '',
+            'Telefone':           l.phone || '',
             'Email':              l.email || '',
-            'Empresa':            l.empresa || '',
+            'Empresa':            l.company || '',
             'Próx. Atendimento':  proxAtend ? moment(proxAtend.date).format('DD/MM/YYYY') + ' ' + proxAtend.time : '',
-            'Observações':        l.notas || '',
-            'Criado em':          l.createdAt ? moment(l.createdAt).format('DD/MM/YYYY') : ''
+            'Observações':        l.notes || '',
+            'Criado em':          l.entryDate ? moment(l.entryDate).format('DD/MM/YYYY') : (l.createdAt ? moment(l.createdAt).format('DD/MM/YYYY') : '')
         };
     });
 
@@ -3526,9 +3526,9 @@ window.exportCRMExcel = function() {
     const atividadesRows = (appState.crmActivities || [])
         .sort((a,b) => moment(b.date).diff(moment(a.date)))
         .map(a => ({
-            'Lead':       a.leadName || '',
-            'Tipo':       a.type || '',
-            'Descrição':  a.description || '',
+            'Lead':       a.leadName || a.lead || '',
+            'Tipo':       a.type || a.action || '',
+            'Descrição':  a.description || a.text || '',
             'Data':       a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : ''
         }));
 
@@ -3538,7 +3538,7 @@ window.exportCRMExcel = function() {
 
     // ── ABA 3: AGENDAMENTOS DO CRM ────────────────────────────────────────
     // Só agendamentos que têm um lead correspondente
-    const nomesLeads = new Set((appState.leads || []).map(l => l.nome));
+    const nomesLeads = new Set((appState.leads || []).map(l => l.name));
     const agendCRM = (appState.clients || [])
         .filter(c => nomesLeads.has(c.name))
         .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))
