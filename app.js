@@ -3524,12 +3524,10 @@ window.exportCRMExcel = function() {
 
     // ── ABA 2: ATIVIDADES ─────────────────────────────────────────────────
     const atividadesRows = (appState.crmActivities || [])
-        .sort((a,b) => moment(b.date).diff(moment(a.date)))
+        .sort((a,b) => moment(b.timestamp || b.date || 0).diff(moment(a.timestamp || a.date || 0)))
         .map(a => ({
-            'Lead':       a.leadName || a.lead || '',
-            'Tipo':       a.type || a.action || '',
-            'Descrição':  a.description || a.text || '',
-            'Data':       a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : ''
+            'Descrição':  a.text || a.description || '',
+            'Data':       a.timestamp ? moment(a.timestamp).format('DD/MM/YYYY HH:mm') : (a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : '')
         }));
 
     const wsAtiv = XLSX.utils.json_to_sheet(atividadesRows.length > 0 ? atividadesRows : [{ 'Info': 'Nenhuma atividade registrada' }]);
