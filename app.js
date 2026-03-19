@@ -94,7 +94,11 @@ let appState = {
     currentView: 'agenda',
     // CRM data
     leads: [],
-    crmActivities: []
+    crmActivities: [],
+    // Ações data
+    bpData: {},
+    esteiraData: {},
+    aiConfig: { provider: 'groq', key: '', model: 'llama-3.3-70b-versatile' }
 };
 
 // Modals & UI Tracking
@@ -147,9 +151,10 @@ function loadState() {
 }
 
 function saveState() {
-    // Garantir que bpData e esteiraData estão no appState antes de salvar
+    // Garantir que campos das Ações estão no appState antes de salvar
     if (!appState.bpData) appState.bpData = {};
     if (!appState.esteiraData) appState.esteiraData = {};
+    if (!appState.aiConfig) appState.aiConfig = { provider: 'groq', key: '', model: 'llama-3.3-70b-versatile' };
     localStorage.setItem('geriahSuiteState', JSON.stringify(appState));
     updateStats();
     updateMetrics();
