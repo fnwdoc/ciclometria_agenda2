@@ -3560,3 +3560,160 @@ window.exportCRMExcel = function() {
     XLSX.writeFile(wb, fileName);
     window.showToast('CRM exportado com ' + (appState.leads || []).length + ' leads!');
 };
+
+// =========================================================================
+// CRM — Import de Leads via Excel (Google Forms/Sheets)
+// =========================================================================
+
+// Colunas aceitas no import — mapeamento flexível
+const leadImportMap = {
+    name:    ['nome', 'name', 'cliente', 'lead', 'contato', 'contact'],
+    email:   ['email', 'e-mail', 'correio'],
+    phone:   ['telefone', 'phone', 'celular', 'whatsapp', 'tel', 'fone'],
+    type:    ['tipo', 'type', 'perfil', 'categoria'],
+    channel: ['canal', 'channel', 'origem', 'source', 'como chegou'],
+    notes:   ['observações', 'observacoes', 'notas', 'notes', 'obs', 'mensagem', 'message', 'comentário'],
+    company: ['empresa', 'company', 'organização', 'negócio'],
+    status:  ['status', 'etapa', 'fase']
+};
+
+const typeImportMap = {
+    'parceiro': 'partner', 'partner': 'partner',
+    'multiplicador': 'multiplier', 'multiplier': 'multiplier',
+    'reserva': 'reserve', 'reserve': 'reserve'
+};
+
+const channelImportMap = {
+    'indicação': 'indicacao', 'indicacao': 'indicacao', 'indicação': 'indicacao',
+    'evento': 'evento', 'social': 'social', 'social media': 'social',
+    'website': 'website', 'site': 'website',
+    'email': 'email', 'e-mail': 'email',
+    'referral': 'referral', 'indicado': 'referral',
+    'paid': 'paid', 'anúncio': 'paid', 'ads': 'paid'
+};
+
+window.downloadLeadTemplate = function() {
+    if (!window.XLSX) return window.showToast('SheetJS não disponível.', 'warning');
+
+    const template = [
+        {
+            'Nome':          'Maria Aparecida Costa',
+            'Email':         'maria@email.com',
+            'Telefone':      '(11) 98765-4321',
+            'Empresa':       'Consultoria Moda 50+',
+            'Tipo':          'Parceiro',
+            'Canal':         'Indicação',
+            'Observações':   'Conheceu pelo Instagram, interesse em mentoria'
+        },
+        {
+            'Nome':          '← Exemplo (apague esta linha)',
+            'Email':         '',
+            'Telefone':      '',
+            'Empresa':       '',
+            'Tipo':          'Parceiro | Multiplicador | Reserva',
+            'Canal':         'Indicação | Evento | Social | Website | Email | Referral | Ads',
+            'Observações':   ''
+        }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    ws['!cols'] = [{wch:30},{wch:28},{wch:18},{wch:25},{wch:15},{wch:15},{wch:45}];
+
+    // Linha de instrução no topo
+    XLSX.utils.sheet_add_aoa(ws, [
+        ['TEMPLATE DE LEADS — GERiAH Suite'],
+        ['Preencha a partir da linha 4. Tipo e Canal devem seguir os valores da linha 3.'],
+        []
+    ], { origin: 'A1' });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Leads');
+    XLSX.writeFile(wb, 'GERiAH_Template_Leads.xlsx');
+    window.showToast('Template baixado! Use como modelo no Google Forms/Sheets.');
+};
+
+window.importLeadsFromExcel = function(evt) {
+    const file = evt.target?.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', raw: false });
+            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+
+            // Encontrar linha de cabeçalho — procura por 'nome' ou 'name' ou 'email'
+            let hIdx = data.findIndex(row => row && row.some(cell => {
+                const v = String(cell || '').toLowerCase().trim();
+                return v === 'nome' || v === 'name' || v === 'email';
+            }));
+
+            if (hIdx === -1) {
+                return window.showToast('Cabeçalho não encontrado. Use o Template para garantir o formato.', 'warning');
+            }
+
+            const headers = data[hIdx].map(h => String(h || '').toLowerCase().trim());
+
+            // Mapear colunas dinamicamente
+            const colIdx = {};
+            for (const [field, aliases] of Object.entries(leadImportMap)) {
+                colIdx[field] = headers.findIndex(h => aliases.some(a => h.includes(a)));
+            }
+
+            if (colIdx.name === -1) {
+                return window.showToast('Coluna "Nome" é obrigatória!', 'warning');
+            }
+
+            let adicionados = 0, duplicados = 0, vazios = 0;
+
+            for (let i = hIdx + 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row || !row[colIdx.name] || String(row[colIdx.name]).trim() === '') { vazios++; continue; }
+
+                const nome = String(row[colIdx.name]).trim();
+
+                // Verificar duplicata pelo nome
+                if (appState.leads.some(l => l.name.toLowerCase() === nome.toLowerCase())) {
+                    duplicados++;
+                    continue;
+                }
+
+                // Montar lead
+                const rawType    = colIdx.type    !== -1 ? String(row[colIdx.type]    || '').toLowerCase().trim() : '';
+                const rawChannel = colIdx.channel !== -1 ? String(row[colIdx.channel] || '').toLowerCase().trim() : '';
+
+                const lead = {
+                    id:         'imp_' + Date.now() + '_' + i,
+                    name:       nome,
+                    email:      colIdx.email   !== -1 ? String(row[colIdx.email]   || '').trim() : '',
+                    phone:      colIdx.phone   !== -1 ? String(row[colIdx.phone]   || '').trim() : '',
+                    company:    colIdx.company !== -1 ? String(row[colIdx.company] || '').trim() : '',
+                    notes:      colIdx.notes   !== -1 ? String(row[colIdx.notes]   || '').trim() : '',
+                    type:       typeImportMap[rawType]    || 'reserve',
+                    channel:    channelImportMap[rawChannel] || 'indicacao',
+                    status:     'lead',
+                    score:      0,
+                    entryDate:  new Date().toISOString()
+                };
+
+                lead.score = calcLeadScore(lead);
+                appState.leads.push(lead);
+                syncLeadToMonitor(lead);
+                adicionados++;
+            }
+
+            saveState();
+            renderCRM();
+            crmAddActivity(`Import Excel: ${adicionados} leads adicionados`);
+
+            let msg = adicionados + ' leads importados!';
+            if (duplicados > 0) msg += ' ' + duplicados + ' duplicados ignorados.';
+            window.showToast(msg);
+
+        } catch(err) {
+            window.showToast('Erro ao ler o arquivo: ' + err.message, 'warning');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    evt.target.value = null;
+};

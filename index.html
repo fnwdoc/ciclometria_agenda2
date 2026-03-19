@@ -115,6 +115,14 @@
                         <button onclick="window.loadCRMExamples()" class="bg-emerald-600/10 text-emerald-600 border border-emerald-200 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-emerald-600 hover:text-white transition-all shrink-0" title="Carregar leads de exemplo deletáveis">
                             <i class="bi bi-stars me-1"></i>Exemplos
                         </button>
+                        <button onclick="window.downloadLeadTemplate()" title="Baixar template Excel para Google Forms"
+                            class="bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all shrink-0">
+                            <i class="bi bi-download me-1"></i>Template
+                        </button>
+                        <label class="bg-indigo-50 text-indigo-600 border border-indigo-200 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-600 hover:text-white transition-all shrink-0 cursor-pointer" title="Importar leads do Excel/Google Sheets">
+                            <i class="bi bi-upload me-1"></i>Import Leads
+                            <input type="file" id="import-leads-file" accept=".xlsx,.xls,.csv" class="sr-only" onchange="window.importLeadsFromExcel(event)">
+                        </label>
                         <div class="relative flex-grow max-w-xs">
                             <input id="crm-search" type="text" placeholder="Buscar lead..." oninput="window.renderCRM()"
                                 class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 outline-none focus:border-indigo-400 transition-all">
