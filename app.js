@@ -3151,7 +3151,7 @@ window.callAI = async function(prompt, systemPrompt = '') {
     const messages = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: prompt });
-    const body = { model: cfg.model, max_tokens: 1000, messages };
+    const body = { model: cfg.model, max_tokens: 3000, messages };
     const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key };
     if (cfg.provider === 'anthropic') headers['anthropic-version'] = '2023-06-01';
     const res = await fetch(p.url, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -4267,15 +4267,29 @@ window.copsGerarProposta = async function() {
             ? '\n\nENTREGÁVEIS SELECIONADOS (incluir na proposta):\n' + copsResultado._entregaveis.map((e,i) => (i+1) + '. ' + e).join('\n')
             : '';
 
-        const userPrompt = 'DIAGNÓSTICO COPS:\n' +
+        // Contexto resumido — evitar token limit
+        const bpS = appState.bpData?.[ctx];
+        const bpResumo = bpS && bpS.portfolio?.length > 0
+            ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
+            : '';
+
+        const userPrompt = 'CLIENTE: ' + ctxNome + '\n' +
+            (bpResumo ? bpResumo + '\n' : '') +
+            '\nDIAGNÓSTICO COPS:\n' +
             'Contexto: ' + copsResultado.contexto + '\n' +
+            'Ocorrência: ' + copsResultado.ocorrencia + '\n' +
             'Problema: ' + copsResultado.problema + '\n' +
-            'Solução Efetiva: ' + copsResultado.solucao_efetiva + '\n\n' +
+            'Solução Imaginada: ' + copsResultado.solucao_imaginada + '\n' +
+            'Solução Efetiva FNW: ' + copsResultado.solucao_efetiva + '\n\n' +
             'HIPÓTESES APROVADAS:\n' + hipSel.map(h => '- ' + h.titulo + ': ' + h.descricao).join('\n') +
             entregaveisStr + '\n\n' +
-            'Cliente/Contexto: ' + ctxNome + '\n' +
-            copsBuildContext() + '\n\n' +
-            'Gere uma proposta de assessoria completa com: abertura empática, diagnóstico resumido, solução proposta, entregáveis (use os listados acima), próximos passos e CTA.';
+            'Gere uma proposta de assessoria completa em HTML (use <h3>, <p>, <strong>, <ul>, <li>) com:\n' +
+            '1. Abertura empática (1 parágrafo)\n' +
+            '2. Diagnóstico resumido\n' +
+            '3. Solução proposta\n' +
+            '4. Lista dos entregáveis acima\n' +
+            '5. Próximos passos\n' +
+            '6. CTA direto';
 
         const resposta = await window.callAI(userPrompt, sysPrompt);
 
