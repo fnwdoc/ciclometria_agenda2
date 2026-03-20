@@ -5202,7 +5202,11 @@ Responda APENAS em JSON válido:
                 } else throw e;
             }
         }
-        const clean = resposta.replace(/```json|```/g,'').trim();
+        // Parser robusto — extrai JSON mesmo com texto extra ao redor
+        let clean = resposta.replace(/```json|```/g,'').trim();
+        // Tentar extrair só o objeto JSON entre { }
+        const jsonMatch = clean.match(/\{[\s\S]*\}/);
+        if (jsonMatch) clean = jsonMatch[0];
         const dados = JSON.parse(clean);
 
         const htmlFinal = simGerarHTMLStandalone(dados, wpp);
