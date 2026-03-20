@@ -4396,3 +4396,90 @@ window.copsClearFile = function() {
     if (nameEl) nameEl.textContent = '';
     if (clearBtn) clearBtn.classList.add('hidden');
 };
+
+// =========================================================================
+// COPS Engine — Refinamento da proposta
+// =========================================================================
+
+let copsRefineHistory = []; // histórico de pedidos de refinamento
+
+window.copsRefinar = async function() {
+    const instrucao = document.getElementById('cops-refine-input')?.value?.trim();
+    if (!instrucao) {
+        window.showToast('Descreva o que quer refinar na proposta.', 'warning');
+        return;
+    }
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
+        return;
+    }
+
+    const icon = document.getElementById('cops-refine-icon');
+    const txt  = document.getElementById('cops-refine-text');
+    if (icon) icon.textContent = '⏳';
+    if (txt)  txt.textContent  = 'Refinando...';
+
+    try {
+        const propostaAtual = document.getElementById('cops-proposta-content')?.innerText || '';
+
+        const sysPrompt = 'Você é um Consultor Sênior da FNW Assessoria. Refine a proposta de assessoria fornecida aplicando exatamente as instruções do usuário. Mantenha o tom, a estrutura e a essência da proposta original. Responda com a proposta refinada em HTML simples (use <h3>, <p>, <strong>, <ul>, <li>).';
+
+        // Histórico de refinamentos para manter contexto
+        const historicoStr = copsRefineHistory.length > 0
+            ? '\n\nRefinamentos anteriores já aplicados:\n' + copsRefineHistory.map((r, i) => (i+1) + '. ' + r).join('\n')
+            : '';
+
+        const userPrompt = 'PROPOSTA ATUAL:\n' + propostaAtual +
+            '\n\nDIAGNÓSTICO COPS ORIGINAL:\n' +
+            'Problema: ' + (copsResultado?.problema || '') + '\n' +
+            'Solução Efetiva: ' + (copsResultado?.solucao_efetiva || '') +
+            historicoStr +
+            '\n\nINSTRUÇÃO DE REFINAMENTO:\n' + instrucao +
+            '\n\nContexto adicional do Suite:\n' + copsBuildContext();
+
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+
+        // Atualizar proposta
+        const propostaEl = document.getElementById('cops-proposta-content');
+        propostaEl.innerHTML = resposta
+            .replace(/```html|```/g,'')
+            .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+
+        // Registrar no histórico
+        copsRefineHistory.push(instrucao);
+
+        // Mostrar histórico
+        const histEl = document.getElementById('cops-refine-history');
+        const histList = document.getElementById('cops-refine-history-list');
+        if (histEl) histEl.classList.remove('hidden');
+        if (histList) {
+            histList.innerHTML = copsRefineHistory.map((r, i) =>
+                '<div class="flex items-start gap-2">' +
+                '<span class="text-[9px] font-black text-violet-400 mt-0.5">' + (i+1) + '.</span>' +
+                '<span class="text-[10px] text-slate-500 font-medium">' + r + '</span>' +
+                '</div>'
+            ).join('');
+        }
+
+        // Limpar campo
+        const inputEl = document.getElementById('cops-refine-input');
+        if (inputEl) inputEl.value = '';
+
+        window.showToast('Proposta refinada! ✓');
+
+    } catch(e) {
+        window.showToast('Erro no refinamento: ' + e.message, 'warning');
+    } finally {
+        if (icon) icon.textContent = '✨';
+        if (txt)  txt.textContent  = 'Refinar com IA';
+    }
+};
+
+// Limpar histórico de refinamento ao resetar
+const _origCopsReset = window.copsReset;
+window.copsReset = function() {
+    copsRefineHistory = [];
+    _origCopsReset();
+    const histEl = document.getElementById('cops-refine-history');
+    if (histEl) histEl.classList.add('hidden');
+};
