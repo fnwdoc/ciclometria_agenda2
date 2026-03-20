@@ -2265,7 +2265,7 @@ window.switchAcaoTab = function(tab) {
 
 window.acoesAbrirFerramenta = function(tool) {
     // Esconder todos os painéis e welcome
-    ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit'].forEach(id => {
+    ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit','acoes-painel-simulador'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
     });
@@ -2286,6 +2286,12 @@ window.acoesAbrirFerramenta = function(tool) {
         const el = document.getElementById('acoes-painel-esteira');
         if (el) { el.classList.remove('hidden'); el.style.display = ''; }
         esteiraRender();
+    } else if (tool === 'simulador') {
+        const el = document.getElementById('acoes-painel-simulador');
+        if (el) { el.classList.remove('hidden'); el.style.display = ''; }
+        const menuItem2 = document.getElementById('acoes-menu-simulador');
+        if (menuItem2) menuItem2.classList.add('active');
+        setTimeout(() => window.simInit(), 50);
     } else if (tool === 'cops') {
         const el = document.getElementById('acoes-painel-cops');
         if (el) { el.classList.remove('hidden'); el.style.display = ''; }
@@ -4069,7 +4075,7 @@ const _origAcoesAbrir = window.acoesAbrirFerramenta;
 window.acoesAbrirFerramenta = function(tool) {
     _origAcoesAbrir(tool);
     if (tool === 'puv-audit') {
-        ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit'].forEach(id => {
+        ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit','acoes-painel-simulador'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
         });
@@ -4906,3 +4912,235 @@ window.copsGenerate = async function() {
         copsRenderFerramentas(copsResultado);
     }
 };
+
+// =========================================================================
+// AÇÕES — Simulador de Proposta (integrado ao GERiAH Suite)
+// =========================================================================
+
+const simFmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+
+// Blocos dinâmicos — substituídos pelo BP ou COPS quando disponíveis
+let simBlocos = [
+    { id:'s1', nome:'Organização da base comercial',    desc:'Pipeline, scripts, CRM e coleta de informações de clientes',            valor:4000, checked:true  },
+    { id:'s2', nome:'Geração de leads qualificados',    desc:'Definição do cliente ideal, tratamento de listas e prospecção ativa',    valor:4000, checked:false },
+    { id:'s3', nome:'Desenvolvimento e nutrição',       desc:'Primeiros contatos, qualificação de leads (MQL, PQL) e acompanhamento', valor:4000, checked:false },
+    { id:'s4', nome:'Fechamento e gestão de vendas',    desc:'Negociação, gestão de objeções e conversão em contratos',                valor:4000, checked:false },
+];
+
+function simGetRadio(name) {
+    return document.querySelector('input[name="' + name + '"]:checked')?.value;
+}
+
+function simRenderBlocos() {
+    const list = document.getElementById('sim-blocos-list');
+    if (!list) return;
+    const n = simBlocos.filter(b => b.checked).length;
+    const allChecked = n === simBlocos.length && simBlocos.length >= 2;
+    const valorUnit = allChecked ? 3500 : 4000;
+
+    list.innerHTML = simBlocos.map((b, i) => `
+        <div onclick="window.simToggleBloco(${i})"
+            class="checklist-item flex items-start gap-3 p-4 bg-white rounded-2xl border-2 ${b.checked ? 'border-indigo-500 bg-indigo-50/60 checked' : 'border-slate-100'} cursor-pointer hover:border-indigo-300 transition-all">
+            <div class="w-6 h-6 rounded-full border-2 ${b.checked ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'} flex items-center justify-center flex-shrink-0 mt-0.5 transition-all">
+                ${b.checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2.5" fill="none"/></svg>' : ''}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-black text-slate-800">${b.nome}</p>
+                <p class="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">${b.desc}</p>
+                <p class="text-[10px] font-black text-indigo-600 mt-1">${b.checked ? simFmt(valorUnit) : '—'}</p>
+            </div>
+        </div>`).join('');
+
+    // Label preço
+    const pl = document.getElementById('sim-preco-label');
+    if (pl) pl.textContent = allChecked
+        ? 'Pacote completo: R$ 3.500/bloco (desconto aplicado)'
+        : 'R$ 4.000/bloco individual · todos = R$ 3.500 cada';
+}
+
+window.simToggleBloco = function(idx) {
+    simBlocos[idx].checked = !simBlocos[idx].checked;
+    simRenderBlocos();
+    simAtualizar();
+};
+
+function simAtualizar() {
+    const checked = simBlocos.filter(b => b.checked);
+    const n = checked.length;
+    const allChecked = n === simBlocos.length && simBlocos.length >= 2;
+    const valorUnit = allChecked ? 3500 : 4000;
+    const valorBlocos = n > 0 ? (allChecked ? 3500 * n : 4000 * n) : 0;
+
+    // Comissionamento
+    const modelo = simGetRadio('sim_commission') || 'padrao';
+    const { percRec, percImp } = modelo === 'acelerado' ? { percRec:0.08, percImp:0.25 }
+                                : modelo === 'premium'   ? { percRec:0.12, percImp:0.30 }
+                                :                         { percRec:0.05, percImp:0.20 };
+
+    const implPorRede   = parseFloat(document.getElementById('sim-implantacao')?.value)  || 20000;
+    const cenario       = simGetRadio('sim_mensalidade') || 'cheia';
+    const mensPorUnidade = cenario === 'negociada' ? 5525 : 6500;
+    const unidadesPorRede = parseInt(document.getElementById('sim-unidades')?.value) || 3;
+    const numRedes      = parseInt(simGetRadio('sim_redes') || '0');
+    const periodo       = parseInt(simGetRadio('sim_periodo') || '12');
+
+    const totalImpl  = numRedes * implPorRede;
+    const totalMens  = numRedes * unidadesPorRede * mensPorUnidade;
+    const fatTotal   = totalImpl + totalMens;
+    const comImp     = totalImpl * percImp;
+    const comRec     = totalMens * percRec;
+    const totalPer   = comImp + (comRec * periodo) + valorBlocos;
+
+    const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    // Header sticky
+    s('sim-q-blocos',    n);
+    s('sim-q-val-blocos', simFmt(valorBlocos));
+    s('sim-q-com-imp',   simFmt(comImp));
+    s('sim-q-com-rec',   simFmt(comRec));
+    s('sim-q-total',     simFmt(comImp + comRec + valorBlocos));
+
+    // Resultado detalhado
+    s('sim-r-implantacao',    simFmt(totalImpl));
+    s('sim-r-mensalidade',    simFmt(totalMens));
+    s('sim-r-fat-total',      simFmt(fatTotal));
+    s('sim-r-com-imp',        simFmt(comImp));
+    s('sim-r-com-rec',        simFmt(comRec));
+    s('sim-r-blocos',         simFmt(valorBlocos));
+    s('sim-r-total-periodo',  simFmt(totalPer));
+    s('sim-r-periodo-label',  periodo + ' meses');
+    s('sim-r-detalhe-blocos', n + (allChecked ? ' bloco(s) — R$ 3.500 cada (pacote)' : ' bloco(s) — R$ 4.000 cada'));
+
+    // Mensagem blocos
+    const msg = n === 0 ? 'Nenhum bloco contratado.'
+        : allChecked ? 'Pacote completo! Desconto de R$ 3.500/bloco aplicado.'
+        : n + ' bloco(s) contratado(s) por R$ 4.000 cada.';
+    s('sim-blocos-count', n + ' de ' + simBlocos.length);
+    s('sim-blocos-msg', msg);
+
+    // Resumo do rodapé
+    s('sim-rodape-redes',    numRedes);
+    s('sim-rodape-unidades', unidadesPorRede);
+    s('sim-rodape-total-u',  numRedes * unidadesPorRede);
+    s('sim-rodape-val-u',    simFmt(mensPorUnidade));
+    s('sim-rodape-blocos',   n);
+}
+
+window.simCalcular = function() { simAtualizar(); };
+
+// Inicializar ao abrir
+window.simInit = function() {
+    const ctx = document.getElementById('selectComunidade')?.value;
+    const ctxNome = (ctx && ctx !== 'null') ? ctx : null;
+
+    const label = document.getElementById('sim-ctx-label');
+    if (label) label.textContent = ctxNome ? '📍 ' + ctxNome : 'Sem contexto — selecione no Foco';
+
+    // Tentar carregar do Business Plan
+    if (ctxNome) {
+        const bpS = appState.bpData?.[ctxNome];
+        if (bpS?.portfolio?.length > 0) {
+            simBlocos = bpS.portfolio.map((p, i) => ({
+                id:'bp_'+i, nome:p.name,
+                desc:(p.capacity||'') + ' ' + (p.unit||''),
+                valor:parseFloat(p.price)||4000, checked:i===0
+            }));
+        }
+    }
+
+    simRenderBlocos();
+    simAtualizar();
+};
+
+// Carregar blocos do COPS ativo
+window.simCarregarDoCOPS = function() {
+    if (!copsResultado?.hipoteses?.length) {
+        window.showToast('Nenhum diagnóstico COPS ativo.', 'warning'); return;
+    }
+    simBlocos = copsResultado.hipoteses.map((h, i) => ({
+        id:'cops_'+i, nome:h.titulo, desc:h.descricao, valor:4000, checked:false
+    }));
+    simRenderBlocos();
+    simAtualizar();
+    window.showToast('Blocos carregados do COPS! ✓');
+};
+
+// Gerar resumo em texto
+window.simGerarResumoTexto = function() {
+    const checked = simBlocos.filter(b => b.checked);
+    const modelo  = simGetRadio('sim_commission') || 'padrao';
+    const nomes   = { padrao:'Padrão (5%+20%)', acelerado:'Acelerado (8%+25%)', premium:'Premium (12%+30%)' };
+    const periodo = simGetRadio('sim_periodo') || '12';
+    const ctx     = document.getElementById('selectComunidade')?.value;
+    const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
+
+    const tPer  = document.getElementById('sim-r-total-periodo')?.textContent || '';
+    const fat   = document.getElementById('sim-r-fat-total')?.textContent || '';
+    const cImp  = document.getElementById('sim-r-com-imp')?.textContent || '';
+    const cRec  = document.getElementById('sim-r-com-rec')?.textContent || '';
+    const vBloc = document.getElementById('sim-r-blocos')?.textContent || '';
+
+    const blocosTxt = checked.length > 0
+        ? checked.map((b,i) => (i+1) + '. ' + b.nome + ' — ' + b.desc + ' — ' + simFmt(b.valor)).join('\n')
+        : 'Nenhum';
+
+    const texto = [
+        'SIMULAÇÃO DE PROPOSTA — GERiAH Suite',
+        'Cliente: ' + ctxNome,
+        '',
+        'Modelo de Comissão: ' + nomes[modelo],
+        'Período: ' + periodo + ' meses',
+        '',
+        'BLOCOS SELECIONADOS:',
+        blocosTxt,
+        '',
+        'Faturamento Mês 1: ' + fat,
+        'Comissão Implantação: ' + cImp,
+        'Comissão Recorrência: ' + cRec,
+        'Blocos: ' + vBloc,
+        'Total Assessoria no Período (' + periodo + ' meses): ' + tPer
+    ].join('\n');
+
+    const el = document.getElementById('sim-resumo');
+    if (el) el.value = texto;
+};
+
+// Gerar resumo com IA
+window.simGerarResumoIA = async function() {
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning'); return;
+    }
+    const checked = simBlocos.filter(b => b.checked);
+    if (!checked.length) { window.showToast('Selecione pelo menos um bloco.', 'warning'); return; }
+
+    window.showToast('Gerando resumo com IA...');
+    try {
+        const ctx     = document.getElementById('selectComunidade')?.value;
+        const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
+        const tPer    = document.getElementById('sim-r-total-periodo')?.textContent;
+        const modelo  = simGetRadio('sim_commission') || 'padrao';
+        const nomes   = { padrao:'Padrão', acelerado:'Acelerado', premium:'Premium' };
+
+        const prompt = [
+            'Gere um resumo executivo de proposta de assessoria para ' + ctxNome + '.',
+            'Blocos contratados: ' + checked.map(b => b.nome).join(', '),
+            'Modelo: ' + nomes[modelo],
+            'Investimento total no período: ' + tPer,
+            'Seja direto, empático e orientado a resultado. Máximo 3 parágrafos.'
+        ].join('\n');
+
+        const resp = await window.callAI(prompt,
+            'Você é um consultor sênior FNW. Escreva resumos de proposta claros, profissionais e persuasivos.');
+        const el = document.getElementById('sim-resumo');
+        if (el) el.value = resp.replace(/```/g,'').trim();
+        window.showToast('Resumo gerado! ✓');
+    } catch(e) { window.showToast('Erro: ' + e.message, 'warning'); }
+};
+
+window.simCopiarResumo = function() {
+    const el = document.getElementById('sim-resumo');
+    if (el?.value) navigator.clipboard.writeText(el.value).then(() => window.showToast('Resumo copiado!'));
+};
+
+window.simExportarPDF = function() { window.print(); };
+
