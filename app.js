@@ -3195,6 +3195,25 @@ function assistenteBuildSystemPrompt() {
     const pilares = item ? (typePillars[item.tipo] || typePillars.Default || []) : [];
     const pilaresStr = pilares.length > 0 ? pilares.map(p => p.icone + ' ' + p.nome).join(' · ') : 'N/A';
 
+    // Todos os contextos do Foco por fase
+    const faseLabelsAll = { prospec: 'Prospecção', ativacao: 'Ativação', implem: 'Implementação', gestao: 'Gestão' };
+    let focoPainelStr = '';
+    let totalContextos = 0;
+    for (const fase in appState.listas) {
+        const itens = (appState.listas[fase] || []).filter(x => x && !x.arquivada);
+        if (itens.length > 0) {
+            focoPainelStr += '  [' + (faseLabelsAll[fase] || fase) + ']' + NL;
+            itens.forEach(i => {
+                focoPainelStr += '    - ' + i.nome + ' | Tipo: ' + i.tipo + ' | Status: ' + i.status;
+                if (i.nome === ctxNome) focoPainelStr += ' ← CONTEXTO ATIVO';
+                focoPainelStr += NL;
+            });
+            totalContextos += itens.length;
+        }
+    }
+    if (!focoPainelStr) focoPainelStr = '  Nenhum contexto cadastrado no Foco ainda.';
+    else focoPainelStr = '  Total: ' + totalContextos + ' contexto(s)' + NL + focoPainelStr;
+
     // Tarefas do contexto
     const tarefas = (appState.tarefasGlobal || []).filter(t => t.context === ctxNome);
     const tarefasStr = tarefas.length > 0
@@ -3251,6 +3270,7 @@ function assistenteBuildSystemPrompt() {
         '1. CONSULTOR ESTRATÉGICO — analisa o contexto com profundidade usando os dados reais abaixo' + NL +
         '2. ORIENTADOR DE AÇÕES — sugere próximos passos práticos e numerados' + NL +
         '3. EDUCADOR — explica a metodologia GERiAH de forma clara e acessível' + NL + NL +
+        '═══ PAINÉIS DO FOCO ═══' + NL + focoPainelStr + NL + NL +
         '═══ CONTEXTO ATIVO ═══' + NL +
         'Nome: ' + (item ? item.nome : 'Nenhum — oriente o usuário a selecionar no Foco') + NL +
         'Tipo: ' + (item ? item.tipo : 'N/A') + NL +
