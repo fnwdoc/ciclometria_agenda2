@@ -4170,7 +4170,12 @@ Responda APENAS em JSON válido com esta estrutura exata:
   ]
 }`;
 
-        const userPrompt = copsBuildContext() + '\n\n=== SITUAÇÃO/DOCUMENTO A ANALISAR ===\n' + raw;
+        // Limitar tamanho do input — API tem limite de tokens
+        const MAX_CHARS = 12000;
+        const rawTruncado = raw.length > MAX_CHARS
+            ? raw.substring(0, MAX_CHARS) + '\n\n[... documento truncado para análise — ' + raw.length + ' caracteres no total]'
+            : raw;
+        const userPrompt = copsBuildContext() + '\n\n=== SITUAÇÃO/DOCUMENTO A ANALISAR ===\n' + rawTruncado;
         const resposta = await window.callAI(userPrompt, sysPrompt);
 
         const clean = resposta.replace(/```json|```/g,'').trim();
