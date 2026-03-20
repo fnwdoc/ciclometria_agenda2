@@ -3795,3 +3795,287 @@ window.abrirPUVZap = function() {
         popup.focus();
     }
 };
+
+// =========================================================================
+// AÇÕES — PUV Audit (Editor Estratégico GERiAH)
+// =========================================================================
+
+window.auditData = null;
+
+const auditExampleData = {
+    alvo: { nome: "Mariana Costa", canal: "Instagram", url: "https://instagram.com/marianacosta_vendas", contexto_realidade: "Consultora de vendas B2B. Foca muito em conteúdo técnico. Objetivo é humanizar e atrair decisores de empresas." },
+    score_total: 14, score_max: 28, classificacao: "Médio",
+    documento_secoes: { diagnostico_performance: "O perfil possui autoridade clara, mas a linguagem é excessivamente corporativa para o Instagram, criando barreira de conexão." },
+    criterios: [
+        { nome: "Clareza da Promessa (Bio)", score: 3, justificativa: "A bio é direta, mas falta o 'como' ela entrega o resultado.", oportunidade_salto: "Adicionar CTA clara para diagnóstico gratuito." },
+        { nome: "Identidade Visual", score: 2, justificativa: "Cores muito frias. Falta contraste em capas de Reels.", oportunidade_salto: "Usar tipografia maior e cores de destaque nas headlines." },
+        { nome: "Prova Social", score: 1, justificativa: "Apenas prints de conversas nos destaques.", oportunidade_salto: "Criar depoimentos em vídeo curtos com clientes reais." },
+        { nome: "Consistência de Conteúdo", score: 4, justificativa: "Postagens diárias e bem estruturadas.", oportunidade_salto: "Alternar formatos estáticos com carrosséis educativos." }
+    ],
+    persona_detectada: { primaria: "Gerentes de vendas de pequenas empresas (30-45 anos).", secundaria: "Empreendedores solo que querem escalar times.", conflito: "O conteúdo parece manual de instruções e não solução desejável." },
+    plano_acao_adaptacao: "Focar em Conteúdo de Autoridade Humana, transformando conhecimento técnico em pílulas de rotina.",
+    top3_acoes: ["Reformular os 3 posts fixados (Humanização + Oferta + Autoridade)", "Sequência de 5 Stories diários respondendo dores dos gerentes", "Alterar a Bio para versão mais humana e direta"]
+};
+
+window.auditLoadExample = function() {
+    window.auditData = JSON.parse(JSON.stringify(auditExampleData));
+    auditRender();
+};
+
+window.auditNewProfile = function() {
+    // Pré-preencher com contexto ativo do Suite
+    const ctx = document.getElementById('selectComunidade')?.value;
+    const ctxNome = (ctx && ctx !== 'null') ? ctx : '';
+    window.auditData = {
+        alvo: { nome: ctxNome, canal: '', url: '', contexto_realidade: '' },
+        score_total: 0, score_max: 28, classificacao: 'Médio',
+        documento_secoes: { diagnostico_performance: '' },
+        criterios: [
+            { nome: 'Clareza da Promessa (Bio)', score: 0, justificativa: '', oportunidade_salto: '' },
+            { nome: 'Identidade Visual', score: 0, justificativa: '', oportunidade_salto: '' },
+            { nome: 'Prova Social', score: 0, justificativa: '', oportunidade_salto: '' },
+            { nome: 'Consistência de Conteúdo', score: 0, justificativa: '', oportunidade_salto: '' }
+        ],
+        persona_detectada: { primaria: '', secundaria: '', conflito: '' },
+        plano_acao_adaptacao: '', top3_acoes: ['', '', '']
+    };
+    auditRender();
+};
+
+window.auditImportJSON = function(evt) {
+    const file = evt.target?.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            window.auditData = JSON.parse(e.target.result);
+            auditRender();
+            window.showToast('Análise importada!');
+        } catch(err) { window.showToast('Arquivo inválido.', 'warning'); }
+    };
+    reader.readAsText(file);
+    evt.target.value = null;
+};
+
+function auditRender() {
+    const d = window.auditData;
+    if (!d) return;
+
+    document.getElementById('audit-landing').classList.add('hidden');
+    document.getElementById('audit-editor').classList.remove('hidden');
+
+    // Geral
+    document.getElementById('audit-input-nome').value = d.alvo.nome || '';
+    document.getElementById('audit-input-canal').value = d.alvo.canal || '';
+    document.getElementById('audit-input-url').value = d.alvo.url || '';
+    document.getElementById('audit-input-contexto').value = d.alvo.contexto_realidade || '';
+    document.getElementById('audit-score-display').textContent = d.score_total || 0;
+    document.getElementById('audit-score-max').textContent = d.score_max || 28;
+    document.getElementById('audit-input-classificacao').value = d.classificacao || 'Médio';
+
+    // Critérios
+    const critList = document.getElementById('audit-criterios-list');
+    critList.innerHTML = d.criterios.map((c, i) => `
+        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-start gap-4">
+                <div class="flex-1">
+                    <input class="w-full bg-transparent font-black text-lg text-[#2D1530] border-none outline-none mb-1"
+                        value="${c.nome}" onchange="window.auditUpdateCrit(${i}, 'nome', this.value)">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pilar de Avaliação</p>
+                </div>
+                <input type="number" min="0" max="4" value="${c.score}"
+                    class="w-14 h-14 bg-white border-2 border-slate-200 rounded-2xl font-black text-xl text-center text-[#2D1530] outline-none"
+                    onchange="window.auditUpdateCrit(${i}, 'score', this.value)">
+            </div>
+            <div class="space-y-2">
+                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Justificativa</label>
+                <textarea class="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 min-h-[70px] outline-none"
+                    onchange="window.auditUpdateCrit(${i}, 'justificativa', this.value)">${c.justificativa}</textarea>
+            </div>
+            <div class="space-y-2">
+                <label class="text-[9px] font-black text-[#2D1530]/60 uppercase tracking-widest">⚡ Oportunidade de Salto</label>
+                <input class="w-full p-3 bg-[#2D1530]/5 border border-[#2D1530]/10 rounded-xl text-xs font-bold text-[#2D1530] outline-none"
+                    value="${c.oportunidade_salto}" onchange="window.auditUpdateCrit(${i}, 'oportunidade_salto', this.value)">
+            </div>
+        </div>`).join('');
+
+    // Persona
+    document.getElementById('audit-persona-primaria').value = d.persona_detectada.primaria || '';
+    document.getElementById('audit-persona-secundaria').value = d.persona_detectada.secundaria || '';
+    document.getElementById('audit-persona-conflito').value = d.persona_detectada.conflito || '';
+
+    // Documento
+    const docList = document.getElementById('audit-documento-list');
+    docList.innerHTML = Object.entries(d.documento_secoes).map(([key, value]) => `
+        <div class="space-y-2">
+            <label class="text-[9px] font-black text-[#2D1530]/40 uppercase tracking-widest">${key.replace(/_/g,' ')}</label>
+            <textarea class="w-full p-6 bg-slate-50 border border-slate-100 rounded-3xl text-sm font-medium text-slate-700 min-h-[200px] outline-none leading-relaxed focus:bg-white"
+                onchange="window.auditUpdateDoc('${key}', this.value)">${value}</textarea>
+        </div>`).join('');
+
+    // Ações
+    document.getElementById('audit-plano-adaptacao').value = d.plano_acao_adaptacao || '';
+    const top3 = document.getElementById('audit-top3-list');
+    top3.innerHTML = d.top3_acoes.map((a, i) => `
+        <div class="flex items-center gap-4 p-5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+            <div class="w-10 h-10 bg-[#2D1530] rounded-xl flex items-center justify-center text-white font-black shrink-0">${i+1}</div>
+            <input class="flex-1 text-sm font-bold text-slate-800 border-b border-slate-100 focus:border-[#2D1530] outline-none py-1"
+                value="${a}" onchange="window.auditUpdateAction(${i}, this.value)">
+        </div>`).join('');
+}
+
+window.auditSwitchTab = function(tab) {
+    document.querySelectorAll('.audit-tab-btn').forEach(b => {
+        const isActive = b.dataset.audittab === tab;
+        b.className = 'audit-tab-btn px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ' +
+            (isActive ? 'bg-[#2D1530] text-white' : 'text-slate-400 hover:bg-slate-100');
+    });
+    document.querySelectorAll('.audit-tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById('audit-tab-' + tab)?.classList.remove('hidden');
+};
+
+window.auditUpdateField = function(field, val) {
+    if (!window.auditData) return;
+    if (field === 'contexto') window.auditData.alvo.contexto_realidade = val;
+    else if (field === 'classificacao') window.auditData.classificacao = val;
+    else window.auditData.alvo[field] = val;
+};
+
+window.auditUpdateCrit = function(idx, field, val) {
+    if (!window.auditData) return;
+    window.auditData.criterios[idx][field] = val;
+    if (field === 'score') {
+        window.auditData.score_total = window.auditData.criterios.reduce((s, c) => s + (parseInt(c.score)||0), 0);
+        document.getElementById('audit-score-display').textContent = window.auditData.score_total;
+    }
+};
+
+window.auditUpdatePersona = function(field, val) {
+    if (!window.auditData) return;
+    window.auditData.persona_detectada[field] = val;
+};
+
+window.auditUpdateDoc = function(key, val) {
+    if (!window.auditData) return;
+    window.auditData.documento_secoes[key] = val;
+};
+
+window.auditUpdateAction = function(idx, val) {
+    if (!window.auditData) return;
+    window.auditData.top3_acoes[idx] = val;
+};
+
+window.auditGenerateAI = async function() {
+    if (!window.auditData) return;
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações primeiro.', 'warning');
+        return;
+    }
+    const ctx = window.auditData.alvo.contexto_realidade;
+    if (!ctx || ctx.length < 10) {
+        window.showToast('Preencha o campo Contexto com mais detalhes.', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('audit-ai-btn-text');
+    const loading = document.getElementById('audit-ai-loading');
+    if (btn) btn.textContent = 'Gerando...';
+    if (loading) loading.classList.remove('hidden');
+
+    try {
+        const systemPrompt = 'Você é um Estrategista Digital Sênior especialista em auditoria de perfis para Instagram/LinkedIn. Crie um plano de ação tático baseado na realidade do cliente. Responda APENAS em JSON válido com os campos: plano_resumo (string) e top3 (array de 3 strings).';
+        const prompt = 'Analise este contexto: "' + ctx + '". Nome: ' + window.auditData.alvo.nome + '. Plataforma: ' + window.auditData.alvo.canal + '. Gere plano_resumo e top3 ações prioritárias.';
+
+        const resposta = await window.callAI(prompt, systemPrompt);
+
+        // Tentar parsear JSON da resposta
+        const clean = resposta.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
+
+        if (parsed.plano_resumo) window.auditData.plano_acao_adaptacao = parsed.plano_resumo;
+        if (parsed.top3) window.auditData.top3_acoes = parsed.top3;
+
+        auditRender();
+        window.auditSwitchTab('acoes');
+        window.showToast('Plano estratégico gerado! ✓');
+    } catch(e) {
+        window.showToast('Erro na IA: ' + e.message, 'warning');
+    } finally {
+        if (btn) btn.textContent = 'Gerar com IA';
+        if (loading) loading.classList.add('hidden');
+    }
+};
+
+window.auditClose = function() {
+    if (confirm('Fechar o projeto atual? Alterações não exportadas serão perdidas.')) {
+        window.auditData = null;
+        document.getElementById('audit-landing').classList.remove('hidden');
+        document.getElementById('audit-editor').classList.add('hidden');
+    }
+};
+
+window.auditExportJSON = function() {
+    if (!window.auditData) return;
+    const name = (window.auditData.alvo.nome || 'perfil').toLowerCase().replace(/\s+/g,'_');
+    const blob = new Blob([JSON.stringify(window.auditData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'geriah_audit_' + name + '.json';
+    a.click();
+    window.showToast('Projeto salvo como JSON!');
+};
+
+window.auditExportHTML = function() {
+    if (!window.auditData) return;
+    const d = window.auditData;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<script src="https://cdn.tailwindcss.com"><\/script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+<style>body{font-family:'Inter',sans-serif;print-color-adjust:exact;}@media print{.no-print{display:none;}}</style>
+</head><body class="bg-slate-50 p-10">
+<div class="max-w-[850px] mx-auto bg-white p-12 shadow-2xl rounded-lg">
+<header class="flex justify-between items-start border-b-4 border-[#2D1530] pb-10 mb-10">
+<div><img src="https://d1yei2z3i6k35z.cloudfront.net/thumb_150/69978746487d6_GEriahNEWLogo_26.png" class="h-14 mb-4"/>
+<h1 class="text-4xl font-black text-[#2D1530] uppercase">${d.alvo.nome}</h1>
+<p class="text-slate-400 font-bold uppercase text-sm">${d.alvo.canal} • Auditoria de Perfil</p></div>
+<div class="text-right"><div class="text-6xl font-black text-[#2D1530]">${d.score_total}<span class="text-slate-200 text-2xl">/${d.score_max}</span></div>
+<div class="bg-[#2D1530] text-white px-4 py-1 text-xs font-black uppercase rounded-full mt-2 inline-block">${d.classificacao}</div></div>
+</header>
+<section class="mb-10"><h2 class="text-xs font-black text-[#2D1530] uppercase tracking-widest mb-4">Diagnóstico Geral</h2>
+<div class="p-6 bg-slate-50 rounded-2xl italic text-slate-700 border-l-8 border-slate-200">"${d.documento_secoes.diagnostico_performance || ''}"</div></section>
+<section class="mb-10"><h2 class="text-xs font-black text-[#2D1530] uppercase tracking-widest mb-6">Pilares Estratégicos</h2>
+<div class="grid gap-4">${d.criterios.map(c => `<div class="border border-slate-100 p-5 rounded-2xl"><div class="flex justify-between items-center mb-2"><h3 class="font-black text-[#2D1530] uppercase">${c.nome}</h3><span class="bg-white px-3 py-1 rounded-full text-xs font-black border">${c.score}/4</span></div><p class="text-sm text-slate-600 mb-3">${c.justificativa}</p><div class="bg-[#2D1530] text-white p-3 rounded-xl text-[10px] font-black uppercase">→ ${c.oportunidade_salto}</div></div>`).join('')}</div></section>
+<section><h2 class="text-xs font-black text-[#2D1530] uppercase tracking-widest mb-4">Plano de Implementação</h2>
+<div class="p-6 bg-purple-50 rounded-2xl text-purple-900 font-bold italic mb-6">"${d.plano_acao_adaptacao}"</div>
+<div class="grid gap-3">${d.top3_acoes.map((a,i) => `<div class="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border"><div class="w-8 h-8 bg-[#2D1530] text-white flex items-center justify-center rounded-xl font-black text-sm">${i+1}</div><p class="font-black text-[#2D1530] uppercase">${a}</p></div>`).join('')}</div></section>
+<div class="no-print mt-10 flex justify-center"><button onclick="window.print()" class="bg-[#2D1530] text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Imprimir PDF</button></div>
+</div></body></html>`;
+    const name = (d.alvo.nome || 'relatorio').toLowerCase().replace(/\s+/g,'_');
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'geriah_audit_' + name + '.html';
+    a.click();
+    window.showToast('Relatório HTML gerado!');
+};
+
+// Registrar painel no acoesAbrirFerramenta
+const _origAcoesAbrir = window.acoesAbrirFerramenta;
+window.acoesAbrirFerramenta = function(tool) {
+    _origAcoesAbrir(tool);
+    if (tool === 'puv-audit') {
+        ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
+        });
+        document.querySelectorAll('.acoes-menu-item').forEach(el => el.classList.remove('active'));
+        const menuItem = document.getElementById('acoes-menu-puv-audit');
+        if (menuItem) menuItem.classList.add('active');
+        const painel = document.getElementById('acoes-painel-puv-audit');
+        if (painel) { painel.classList.remove('hidden'); painel.style.display = ''; }
+        // Pré-preencher contexto ativo se landing ainda visível
+        if (!window.auditData) {
+            const ctx = document.getElementById('selectComunidade')?.value;
+        }
+    }
+};
