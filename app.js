@@ -3767,51 +3767,19 @@ window.abrirPUVZap = function() {
     const left = screen.width - w - 20;
     const top = 50;
 
-    const popup = window.open('', 'PUVZap',
+    // Abrir popup já com o link do WhatsApp — navega dentro do popup
+    const popup = window.open(
+        'https://chat.whatsapp.com/HYvnmCO2mdT5bcwrXTXo0r',
+        'PUVZap',
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
-        ',resizable=yes,scrollbars=yes');
+        ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no'
+    );
 
     if (!popup) {
+        // Fallback se popup bloqueado
         window.open('https://chat.whatsapp.com/HYvnmCO2mdT5bcwrXTXo0r', '_blank');
         return;
     }
 
-    popup.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>PUVZap — Comunidade GERiAH</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, sans-serif; background:#f0f2f5; display:flex; flex-direction:column; height:100vh; }
-  .header { background:#075e54; color:white; padding:12px 16px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
-  .header span { font-size:20px; }
-  .header div p { margin:0; font-size:13px; font-weight:700; }
-  .header div small { font-size:10px; opacity:0.8; }
-  iframe { flex:1; border:none; width:100%; }
-  .fallback { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:32px; text-align:center; }
-  .fallback p { font-size:13px; color:#555; line-height:1.5; }
-  .btn { background:#25d366; color:white; border:none; padding:14px 28px; border-radius:24px; font-size:14px; font-weight:700; cursor:pointer; text-decoration:none; display:inline-block; }
-  .btn:hover { background:#128c7e; }
-</style>
-</head>
-<body>
-  <div class="header">
-    <span>💬</span>
-    <div>
-      <p>PUVZap</p>
-      <small>Comunidade GERiAH · WhatsApp</small>
-    </div>
-  </div>
-  <div class="fallback">
-    <div style="font-size:48px">💬</div>
-    <p><strong>Comunidade PUVZap</strong><br>Clique abaixo para entrar no grupo no WhatsApp Web — abrirá aqui nesta janela.</p>
-    <a href="https://chat.whatsapp.com/HYvnmCO2mdT5bcwrXTXo0r" target="_self" class="btn">
-      Abrir no WhatsApp Web
-    </a>
-    <p style="font-size:11px;color:#999">Se preferir usar o app, clique em "Abrir WhatsApp" quando solicitado.</p>
-  </div>
-</body>
-</html>`);
-    popup.document.close();
+    popup.focus();
 };
