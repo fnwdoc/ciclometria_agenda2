@@ -5906,3 +5906,393 @@ calculateCommission();
 </body>
 </html>`;
 }
+
+// =========================================================================
+// Simulador — Gerador de HTML self-service para cliente
+// =========================================================================
+
+window.simPuxarCtxCOPS = function() {
+    if (!copsResultado) {
+        window.showToast('Nenhum COPS ativo.', 'warning'); return;
+    }
+    const txt = [
+        'CONTEXTO: ' + (copsResultado.contexto || ''),
+        'PROBLEMA: ' + (copsResultado.problema || ''),
+        'SOLUÇÃO EFETIVA: ' + (copsResultado.solucao_efetiva || ''),
+        'HIPÓTESES: ' + (copsResultado.hipoteses || []).map(h => h.titulo).join(', ')
+    ].join('\n');
+    const el = document.getElementById('sim-ctx-cliente');
+    if (el) el.value = txt;
+    window.showToast('Contexto do COPS carregado!');
+};
+
+window.simGerarHTMLCliente = async function() {
+    const ctx = document.getElementById('sim-ctx-cliente')?.value?.trim();
+    if (!ctx || ctx.length < 20) {
+        window.showToast('Descreva o contexto do cliente primeiro.', 'warning'); return;
+    }
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning'); return;
+    }
+
+    const icon = document.getElementById('sim-gerar-icon');
+    const txt  = document.getElementById('sim-gerar-text');
+    if (icon) icon.textContent = '⏳';
+    if (txt)  txt.textContent  = 'Gerando proposta personalizada...';
+
+    try {
+        const whatsapp = document.getElementById('sim-whatsapp')?.value?.trim() || '';
+        const ctxAtivo = document.getElementById('selectComunidade')?.value;
+        const ctxNome  = (ctxAtivo && ctxAtivo !== 'null') ? ctxAtivo : 'Cliente';
+
+        // Pegar blocos e valores atuais do simulador
+        const blocosAtuais = simBlocos.map(b => b.nome + ' (R$ ' + b.valor + ')').join(', ');
+        const bpS = appState.bpData?.[ctxNome];
+        const portfolioStr = bpS?.portfolio?.length
+            ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
+            : '';
+
+        const sysPrompt = `Você é um estrategista sênior da FNW Assessoria. 
+Sua tarefa é gerar um objeto JSON com as informações para personalizar uma proposta self-service para o cliente.
+Baseie-se no contexto fornecido e adapte TUDO para a realidade específica deste cliente.
+
+Responda APENAS em JSON válido com esta estrutura:
+{
+  "titulo": "Nome da empresa/cliente — Assessoria FNW",
+  "subtitulo": "Subtítulo contextualizado (ex: 'Baseado no diagnóstico de março')",
+  "resumo_inicial": "Texto de abertura personalizado para este cliente (2-3 frases empáticas e diretas)",
+  "blocos": [
+    {"nome": "Nome do bloco adaptado", "desc": "Descrição específica para este contexto", "valor": 4000, "recomendado": true},
+    {"nome": "...", "desc": "...", "valor": 4000, "recomendado": false}
+  ],
+  "implantacao_por_rede": 20000,
+  "mensalidade_cheia": 6500,
+  "mensalidade_negociada": 5525,
+  "modelo_recomendado": "padrao",
+  "frase_motivacional": "Frase de impacto específica para este cliente",
+  "nota_rodape": "Texto do rodapé personalizado"
+}`;
+
+        const userPrompt = [
+            'CONTEXTO DO CLIENTE:',
+            ctx,
+            '',
+            'CLIENTE/CONTEXTO ATIVO NO SISTEMA: ' + ctxNome,
+            portfolioStr,
+            'BLOCOS DISPONÍVEIS NO MOMENTO: ' + blocosAtuais,
+            '',
+            'Personalize completamente a proposta para este contexto específico.',
+            'Os blocos devem refletir exatamente o que faz sentido para este cliente.',
+            'Valores podem ser ajustados conforme o contexto (orçamento, porte, etc).',
+            'Mantenha no máximo 4-5 blocos.'
+        ].join('\n');
+
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+        const clean = resposta.replace(/```json|```/g,'').trim();
+        const dados = JSON.parse(clean);
+
+        // Gerar o HTML standalone
+        const htmlFinal = simGerarHTMLStandalone(dados, whatsapp);
+
+        // Download do arquivo
+        const blob = new Blob([htmlFinal], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a');
+        const nomeArq = (dados.titulo || ctxNome).toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,30);
+        a.href = URL.createObjectURL(blob);
+        a.download = 'proposta_' + nomeArq + '_' + new Date().toISOString().slice(0,10) + '.html';
+        a.click();
+
+        window.showToast('Proposta gerada e baixada! Envie o arquivo HTML para o cliente. ✓');
+
+    } catch(e) {
+        window.showToast('Erro: ' + e.message, 'warning');
+        console.error(e);
+    } finally {
+        if (icon) icon.textContent = '✨';
+        if (txt)  txt.textContent  = 'Gerar Proposta Personalizada para Cliente';
+    }
+};
+
+function simGerarHTMLStandalone(dados, whatsappAssessor) {
+    const blocos = dados.blocos || [];
+    const wpp = whatsappAssessor || '';
+
+    const blocosHTML = blocos.map((b, i) => `
+        <div class="checklist-item p-5 bg-white rounded-2xl border-2 ${b.recomendado ? 'border-indigo-400 bg-indigo-50/50 checked' : 'border-gray-100'} cursor-pointer flex items-start gap-4 transition-all hover:border-indigo-300"
+            data-bloco="${i}" data-valor="${b.valor}" onclick="toggleBloco(this)">
+            <div class="flex-shrink-0 mt-1">
+                <span class="check-indicator w-7 h-7 rounded-full border-2 ${b.recomendado ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'} flex items-center justify-center font-black text-sm">
+                    ${b.recomendado ? '✓' : ''}
+                </span>
+            </div>
+            <div class="flex-1">
+                <h3 class="font-black text-lg text-gray-800">${b.nome}</h3>
+                <p class="text-sm text-gray-500 mt-1 leading-relaxed">${b.desc}</p>
+                <p class="text-xs font-black text-indigo-600 mt-2">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(b.valor)}/bloco</p>
+            </div>
+            ${b.recomendado ? '<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg uppercase tracking-wider h-fit">✨ Recomendado</span>' : ''}
+        </div>`).join('');
+
+    const wppBtn = wpp
+        ? `<button onclick="enviarWhatsApp()" class="w-full bg-green-500 hover:bg-green-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.122 1.523 5.858L0 24l6.335-1.505A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.659-.525-5.168-1.434l-.371-.22-3.762.894.944-3.668-.24-.386A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+            Confirmar Escolhas via WhatsApp
+           </button>`
+        : `<button onclick="copiarResumo()" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl">
+            📋 Copiar Resumo das Escolhas
+           </button>`;
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${dados.titulo || 'Proposta FNW'}</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<style>
+  html { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; scroll-behavior: smooth; }
+  body { background: #f1f5f9; }
+  .checklist-item.checked { background-color: #eef2ff; border-color: #6366f1; }
+  .checklist-item.checked .check-indicator { background: #4f46e5; border-color: #4f46e5; color: white; }
+  @media print { .no-print { display:none!important; } body { background:white; } }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="bg-[#1e1b4b] text-white py-8 shadow-2xl">
+  <div class="max-w-4xl mx-auto px-6">
+    <img src="https://geriah-suite.vercel.app/logo.png" class="h-12 mb-4 object-contain" alt="GERiAH">
+    <h1 class="text-2xl font-black tracking-tight">${dados.titulo || 'Proposta de Assessoria'}</h1>
+    <p class="text-indigo-300 text-sm mt-1 font-medium">${dados.subtitulo || ''}</p>
+  </div>
+</header>
+
+<!-- Resumo sticky -->
+<div class="sticky top-0 z-10 bg-indigo-900/90 backdrop-blur-sm text-white shadow-lg py-4">
+  <div class="max-w-4xl mx-auto px-6">
+    <p class="text-[10px] text-indigo-300 font-black uppercase tracking-widest mb-2">📊 Sua Simulação</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+      <div><p class="text-[9px] opacity-60">Blocos</p><p id="q-blocos" class="text-xl font-black">0</p></div>
+      <div><p class="text-[9px] opacity-60">Valor Blocos</p><p id="q-val-blocos" class="text-lg font-black">R$ 0</p></div>
+      <div><p class="text-[9px] opacity-60">Comissão Imp.</p><p id="q-com-imp" class="text-lg font-black">R$ 0</p></div>
+      <div><p class="text-[9px] opacity-60">Comissão Rec.</p><p id="q-com-rec" class="text-lg font-black">R$ 0</p></div>
+      <div><p class="text-[9px] opacity-60">Total Mês 1</p><p id="q-total" class="text-xl font-black text-yellow-300">R$ 0</p></div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-4xl mx-auto px-6 py-8 space-y-8">
+
+  <!-- Abertura -->
+  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+    <p class="text-gray-700 text-lg leading-relaxed font-medium">${dados.resumo_inicial || ''}</p>
+  </div>
+
+  <!-- Blocos -->
+  <div class="bg-indigo-50 border-t-4 border-indigo-600 rounded-3xl p-8 space-y-5">
+    <h2 class="text-2xl font-black text-indigo-800">Escolha os Módulos da sua Assessoria</h2>
+    <p class="text-sm text-indigo-600 font-medium">Selecione os módulos que deseja contratar. Cada um leva ~3 semanas.</p>
+    <p id="preco-label" class="text-sm font-black text-indigo-700">R$ ${(dados.blocos?.[0]?.valor||4000).toLocaleString('pt-BR')}/módulo individual · todos = desconto especial</p>
+    <div class="grid md:grid-cols-2 gap-4" id="blocos-list">
+      ${blocosHTML}
+    </div>
+    <div class="bg-white rounded-2xl p-4 text-sm font-medium text-gray-600">
+      <span class="font-black text-indigo-700">Módulos selecionados: </span>
+      <span id="blocos-count">0</span> · <span id="blocos-msg" class="italic text-gray-400">Nenhum selecionado ainda.</span>
+    </div>
+    <p class="text-indigo-500 text-xs font-medium italic">"${dados.frase_motivacional || ''}"</p>
+  </div>
+
+  <!-- Comissionamento -->
+  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4">
+    <h2 class="text-xl font-black text-gray-800">Modelo de Parceria</h2>
+    <label class="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl cursor-pointer border-2 hover:border-slate-400 transition-all">
+      <input type="radio" name="commission" value="padrao" ${dados.modelo_recomendado==='padrao'?'checked':''} onchange="calcular()" class="mt-1 accent-slate-600 flex-shrink-0">
+      <div>
+        <p class="font-black text-gray-800">Padrão — 5% recorrência + 20% implantação</p>
+        <p class="text-sm text-gray-500 mt-1">Sem prospecção ativa · Estruturamos a máquina de vendas</p>
+      </div>
+      ${dados.modelo_recomendado==='padrao'?'<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
+    </label>
+    <label class="flex items-start gap-4 p-4 bg-blue-50 rounded-2xl cursor-pointer border-2 hover:border-blue-400 transition-all">
+      <input type="radio" name="commission" value="acelerado" ${dados.modelo_recomendado==='acelerado'?'checked':''} onchange="calcular()" class="mt-1 accent-blue-600 flex-shrink-0">
+      <div>
+        <p class="font-black text-blue-800">Acelerado — 8% recorrência + 25% implantação</p>
+        <p class="text-sm text-blue-600 mt-1">Com prospecção ativa + módulos contratados</p>
+      </div>
+      ${dados.modelo_recomendado==='acelerado'?'<span class="flex-shrink-0 text-[9px] font-black text-blue-600 bg-blue-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
+    </label>
+    <label class="flex items-start gap-4 p-4 bg-violet-50 rounded-2xl cursor-pointer border-2 hover:border-violet-400 transition-all">
+      <input type="radio" name="commission" value="premium" ${dados.modelo_recomendado==='premium'?'checked':''} onchange="calcular()" class="mt-1 accent-violet-600 flex-shrink-0">
+      <div>
+        <p class="font-black text-violet-800">Premium — 12% recorrência + 30% implantação</p>
+        <p class="text-sm text-violet-600 mt-1">Prospecção ativa + módulos + agenda SDR acelerada</p>
+      </div>
+      ${dados.modelo_recomendado==='premium'?'<span class="flex-shrink-0 text-[9px] font-black text-violet-600 bg-violet-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
+    </label>
+  </div>
+
+  <!-- Configuração -->
+  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
+    <h2 class="text-xl font-black text-gray-800">Configure sua Simulação</h2>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Valor por unidade</label>
+        <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-gray-400 mb-2 transition-all">
+          <input type="radio" name="mensalidade" value="${dados.mensalidade_cheia||6500}" checked onchange="calcular()" class="accent-gray-600">
+          <span class="font-bold text-sm">Cheio: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(dados.mensalidade_cheia||6500)}/unidade</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl cursor-pointer border-2 hover:border-emerald-400 transition-all">
+          <input type="radio" name="mensalidade" value="${dados.mensalidade_negociada||5525}" onchange="calcular()" class="accent-emerald-600">
+          <span class="font-bold text-sm text-emerald-700">Negociado: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(dados.mensalidade_negociada||5525)}/unidade</span>
+        </label>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Unidades por rede</label>
+          <select id="unidades" onchange="calcular()" class="w-full p-3 border border-gray-200 rounded-xl bg-white font-bold text-sm outline-none focus:border-indigo-400">
+            <option value="3" selected>3 unidades</option><option value="4">4</option><option value="5">5</option>
+            <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="10">10</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Redes por mês</label>
+          <div class="flex gap-2">
+            ${[0,1,2,3,4].map(n=>`<label class="flex-1 flex items-center justify-center p-2 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-xs font-bold"><input type="radio" name="redes" value="${n}" ${n===0?'checked':''} onchange="calcular()" class="mr-1 accent-indigo-600">${n}${n===4?' (teto)':''}</label>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Período do contrato</label>
+      <div class="flex gap-2 flex-wrap">
+        ${[3,6,9,12].map(p=>`<label class="flex items-center gap-2 px-4 py-3 ${p===12?'bg-emerald-50 border-emerald-400':'bg-gray-50'} rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-sm font-bold"><input type="radio" name="periodo" value="${p}" ${p===12?'checked':''} onchange="calcular()" class="accent-indigo-600">${p} meses</label>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultado -->
+  <div class="bg-slate-900 text-white rounded-3xl p-8 space-y-5">
+    <h2 class="text-xl font-black text-yellow-400 uppercase tracking-widest">📈 Projeção</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Implantação</p><p id="r-impl" class="text-lg font-black">R$ 0</p></div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Mensalidade</p><p id="r-mens" class="text-lg font-black">R$ 0</p></div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Fat. Mês 1</p><p id="r-fat" class="text-lg font-black text-yellow-300">R$ 0</p></div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Comissão Imp.</p><p id="r-com-imp" class="text-sm font-black">R$ 0</p></div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Comissão Rec.</p><p id="r-com-rec" class="text-sm font-black text-emerald-400">R$ 0</p></div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Módulos</p><p id="r-blocos" class="text-sm font-black text-blue-400">R$ 0</p></div>
+      <div class="bg-indigo-800 p-4 rounded-2xl text-center border border-indigo-600"><p class="text-xs text-indigo-300 mb-1">Total Período</p><p id="r-total" class="text-xl font-black">R$ 0</p><p id="r-periodo" class="text-[9px] text-yellow-400">12 meses</p></div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4 no-print">
+    <h2 class="text-xl font-black text-gray-800">Confirmar Escolhas</h2>
+    <p class="text-sm text-gray-500 font-medium">Quando estiver satisfeito com a simulação, confirme suas escolhas:</p>
+    ${wppBtn}
+    <button onclick="window.print()" class="w-full bg-blue-100 text-blue-700 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-200 transition-all">
+      🖨️ Salvar como PDF
+    </button>
+  </div>
+
+</main>
+
+<footer class="bg-slate-800 text-white py-6 text-center mt-8">
+  <p class="text-xs opacity-50 font-medium">${dados.nota_rodape || '© 2026 FNW Assessoria · Todos os direitos reservados.'}</p>
+  <p class="text-[9px] opacity-30 mt-1">Gerado via GERiAH Suite</p>
+</footer>
+
+<script>
+const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+const $ = id => document.getElementById(id);
+const radio = name => document.querySelector('input[name="'+name+'"]:checked')?.value;
+
+const blocosDados = ${JSON.stringify(blocos)};
+let blocosChecked = blocosDados.map(b => b.recomendado || false);
+
+function toggleBloco(el) {
+  const i = parseInt(el.dataset.bloco);
+  blocosChecked[i] = !blocosChecked[i];
+  el.classList.toggle('checked', blocosChecked[i]);
+  const ind = el.querySelector('.check-indicator');
+  if (blocosChecked[i]) { ind.textContent = '✓'; ind.classList.add('bg-indigo-600','border-indigo-600','text-white'); }
+  else { ind.textContent = ''; ind.classList.remove('bg-indigo-600','border-indigo-600','text-white'); }
+  calcular();
+}
+
+function calcular() {
+  const n = blocosChecked.filter(Boolean).length;
+  const allChecked = n === blocosDados.length && n >= 2;
+  const valorUnit = allChecked ? blocosDados[0].valor * 0.875 : blocosDados[0]?.valor || 4000;
+  const valorBlocos = blocosChecked.reduce((s,c,i) => s + (c ? blocosDados[i].valor : 0), 0) * (allChecked ? 0.875 : 1);
+
+  const modelo = radio('commission') || 'padrao';
+  const percRec = modelo==='premium'?0.12:modelo==='acelerado'?0.08:0.05;
+  const percImp = modelo==='premium'?0.30:modelo==='acelerado'?0.25:0.20;
+
+  const impl = parseFloat('${dados.implantacao_por_rede||20000}');
+  const mens = parseFloat(radio('mensalidade') || '${dados.mensalidade_cheia||6500}');
+  const unid = parseInt($('unidades')?.value || '3');
+  const redes = parseInt(radio('redes') || '0');
+  const per  = parseInt(radio('periodo') || '12');
+
+  const totalImpl = redes * impl;
+  const totalMens = redes * unid * mens;
+  const fat = totalImpl + totalMens;
+  const comImp = totalImpl * percImp;
+  const comRec = totalMens * percRec;
+  const total = comImp + (comRec * per) + valorBlocos;
+
+  const s = (id,v) => { const el=$(id); if(el) el.textContent=v; };
+  s('q-blocos',n); s('q-val-blocos',fmt(valorBlocos));
+  s('q-com-imp',fmt(comImp)); s('q-com-rec',fmt(comRec));
+  s('q-total',fmt(comImp+comRec+valorBlocos));
+  s('r-impl',fmt(totalImpl)); s('r-mens',fmt(totalMens)); s('r-fat',fmt(fat));
+  s('r-com-imp',fmt(comImp)); s('r-com-rec',fmt(comRec));
+  s('r-blocos',fmt(valorBlocos)); s('r-total',fmt(total));
+  s('r-periodo',per+' meses');
+  s('blocos-count',n);
+  s('blocos-msg', n===0?'Nenhum módulo selecionado.':allChecked?'Pacote completo! Desconto aplicado.':n+' módulo(s) selecionado(s).');
+}
+
+function gerarResumoTexto() {
+  const n = blocosChecked.filter(Boolean).length;
+  const modelo = radio('commission')||'padrao';
+  const nomes = {padrao:'Padrão (5%+20%)',acelerado:'Acelerado (8%+25%)',premium:'Premium (12%+30%)'};
+  const total = $('r-total')?.textContent || '';
+  const periodo = radio('periodo') || '12';
+  const blocosSel = blocosDados.filter((_,i)=>blocosChecked[i]).map((b,i)=>(i+1)+'. '+b.nome).join('\\n');
+  return [
+    '*PROPOSTA FNW — ESCOLHAS DO CLIENTE*',
+    '',
+    '*Módulos selecionados:*',
+    blocosSel || 'Nenhum',
+    '',
+    '*Modelo:* ' + nomes[modelo],
+    '*Período:* ' + periodo + ' meses',
+    '*Total projetado:* ' + total,
+    '',
+    '_(Gerado via GERiAH Suite · Proposta Self-Service)_'
+  ].join('\\n');
+}
+
+function enviarWhatsApp() {
+  const resumo = gerarResumoTexto();
+  const wpp = '${wpp}';
+  if (!wpp) { copiarResumo(); return; }
+  const url = 'https://wa.me/' + wpp + '?text=' + encodeURIComponent(resumo);
+  window.open(url, '_blank');
+}
+
+function copiarResumo() {
+  navigator.clipboard.writeText(gerarResumoTexto()).then(()=>alert('Resumo copiado! Cole no WhatsApp.'));
+}
+
+calcular();
+<\/script>
+</body>
+</html>`;
+}

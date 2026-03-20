@@ -979,46 +979,38 @@
                                     </div>
                                 </div>
 
-                                <!-- Gerar HTML para cliente -->
-                                <div class="bg-gradient-to-r from-indigo-900 to-violet-900 rounded-2xl p-5 space-y-3">
+                                <!-- Gerar HTML self-service para cliente -->
+                                <div class="bg-gradient-to-br from-slate-900 to-indigo-900 rounded-2xl p-5 space-y-4">
                                     <div class="flex items-center gap-3">
                                         <span class="text-2xl">🚀</span>
                                         <div>
-                                            <p class="text-sm font-black text-white">Gerar Proposta para o Cliente</p>
-                                            <p class="text-[10px] text-indigo-300 font-medium">IA transforma o contexto em um simulador personalizado · cliente abre, decide e confirma em PDF</p>
+                                            <p class="text-sm font-black text-white">Gerar Proposta Self-Service para o Cliente</p>
+                                            <p class="text-[10px] text-indigo-300 font-medium">IA cruza o contexto → gera HTML personalizado → cliente abre, decide e te envia o resultado via WhatsApp</p>
                                         </div>
                                     </div>
-                                    <textarea id="sim-ctx-cliente" rows="3"
-                                        class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-indigo-300 resize-none transition-all"
-                                        placeholder="Descreva o contexto do cliente para a IA adaptar a proposta... Ex: 'Academia de natação com 2 unidades querendo expandir para 5. Foco em captação de alunos adultos 40+. Já tem CRM mas não usa.'"></textarea>
+                                    <textarea id="sim-ctx-cliente" rows="4"
+                                        class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-300 resize-none transition-all"
+                                        placeholder="Contexto do cliente para a IA personalizar:&#10;• Quem é, o que faz, quantas unidades&#10;• Qual o desafio principal&#10;• O que já foi discutido&#10;• Tom da relação (formal, próximo)&#10;• Orçamento esperado&#10;&#10;Pode colar o COPS, e-mails, anotações..."></textarea>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] text-indigo-300 font-black uppercase whitespace-nowrap">📱 Seu WhatsApp</span>
+                                        <input type="text" id="sim-whatsapp" placeholder="5511999999999"
+                                            class="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-300">
+                                        <button onclick="window.simPuxarCtxCOPS()"
+                                            class="text-[9px] font-black text-indigo-300 bg-white/10 border border-white/20 px-3 py-2.5 rounded-xl hover:bg-white/20 transition-all whitespace-nowrap">
+                                            🔬 Do COPS
+                                        </button>
+                                    </div>
                                     <button onclick="window.simGerarHTMLCliente()"
-                                        class="w-full bg-white text-indigo-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
-                                        <span id="sim-gerar-html-icon">✨</span>
-                                        <span id="sim-gerar-html-text">Gerar Simulador Personalizado (HTML)</span>
+                                        class="w-full bg-white text-indigo-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 shadow-xl">
+                                        <span id="sim-gerar-icon">✨</span>
+                                        <span id="sim-gerar-text">Gerar Proposta Personalizada para Cliente</span>
                                     </button>
                                 </div>
 
-                                <!-- Export -->
-                                <div class="space-y-3 pb-4">
-                                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-lg">🚀</span>
-                                            <div>
-                                                <p class="text-xs font-black text-emerald-800">Gerar Proposta Self-Service para o Cliente</p>
-                                                <p class="text-[10px] text-emerald-600 font-medium">IA adapta o simulador para o contexto · Cliente interage e exporta PDF</p>
-                                            </div>
-                                        </div>
-                                        <textarea id="sim-contexto-cliente" rows="3"
-                                            class="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400 resize-none transition-all"
-                                            placeholder="Descreva o contexto do cliente para personalizar o simulador...&#10;Ex: 'Academia de ginástica em SP, 3 unidades, quer estruturar o comercial e prospectar redes parceiras'"></textarea>
-                                        <button onclick="window.simGerarHTMLCliente()"
-                                            class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md flex items-center justify-center gap-2">
-                                            <span id="sim-gerar-icon">✨</span>
-                                            <span id="sim-gerar-text">Gerar Simulador Personalizado (HTML)</span>
-                                        </button>
-                                    </div>
+                                <!-- Export PDF -->
+                                <div class="pb-4">
                                     <button onclick="window.simExportarPDF()"
-                                        class="w-full bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg">
+                                        class="w-full bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all">
                                         🖨️ Exportar PDF desta Simulação
                                     </button>
                                 </div>
