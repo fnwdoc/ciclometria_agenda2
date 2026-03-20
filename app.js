@@ -589,9 +589,23 @@ window.closeWebPreview = () => {
 
 window.expandWebPreview = () => {
     const win = document.getElementById('auxiliaryWindow');
-    const isFull = win.style.width === "100%";
-    win.style.width = isFull ? "45%" : "100%";
-    document.getElementById('mainWrapper').style.paddingRight = isFull ? "45%" : "0";
+    const btn = win.querySelector('button[onclick*="expandWebPreview"]');
+    const isFull = win.dataset.expanded === '1';
+    if (isFull) {
+        // Voltar ao tamanho normal
+        win.style.width = '';
+        win.style.maxWidth = '45%';
+        win.style.minWidth = 'min(100vw, 400px)';
+        win.dataset.expanded = '0';
+        if (btn) btn.textContent = '⤢';
+    } else {
+        // Expandir tela cheia
+        win.style.width = '100%';
+        win.style.maxWidth = '100%';
+        win.style.minWidth = '100%';
+        win.dataset.expanded = '1';
+        if (btn) btn.textContent = '⤡';
+    }
 };
 
 window.openPopup = (url) => { if (url) window.open(url, '_blank', 'width=1200,height=800'); };
