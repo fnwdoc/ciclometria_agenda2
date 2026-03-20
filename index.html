@@ -578,27 +578,67 @@
                                 <!-- ETAPA 2: COPS Estruturado -->
                                 <div id="cops-step-result" class="hidden space-y-4">
 
-                                    <!-- Cards COPS -->
+                                    <!-- Cards COPS editáveis -->
                                     <div class="grid gap-3">
                                         <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-                                            <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">C — Contexto</p>
-                                            <p id="cops-contexto" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest">C — Contexto</p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[8px] text-blue-400 font-medium">✏️ editável</span>
+                                                    <button onclick="window.copsRefinarCampo('contexto')"
+                                                        class="text-[8px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all">✨ IA</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="cops-contexto" rows="3" oninput="window.copsUpdateField('contexto', this.value)"
+                                                class="w-full bg-transparent text-sm font-medium text-slate-700 leading-relaxed border-none outline-none resize-none focus:bg-blue-100/30 rounded-xl p-1 transition-all"></textarea>
                                         </div>
                                         <div class="bg-amber-50 border border-amber-100 rounded-2xl p-5">
-                                            <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-2">O — Ocorrência</p>
-                                            <p id="cops-ocorrencia" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest">O — Ocorrência</p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[8px] text-amber-400 font-medium">✏️ editável</span>
+                                                    <button onclick="window.copsRefinarCampo('ocorrencia')"
+                                                        class="text-[8px] font-black text-amber-600 bg-amber-100 px-2 py-0.5 rounded-lg hover:bg-amber-600 hover:text-white transition-all">✨ IA</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="cops-ocorrencia" rows="3" oninput="window.copsUpdateField('ocorrencia', this.value)"
+                                                class="w-full bg-transparent text-sm font-medium text-slate-700 leading-relaxed border-none outline-none resize-none focus:bg-amber-100/30 rounded-xl p-1 transition-all"></textarea>
                                         </div>
                                         <div class="bg-rose-50 border border-rose-100 rounded-2xl p-5">
-                                            <p class="text-[9px] font-black text-rose-600 uppercase tracking-widest mb-2">P — Problema Real</p>
-                                            <p id="cops-problema" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <p class="text-[9px] font-black text-rose-600 uppercase tracking-widest">P — Problema Real</p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[8px] text-rose-400 font-medium">✏️ editável</span>
+                                                    <button onclick="window.copsRefinarCampo('problema')"
+                                                        class="text-[8px] font-black text-rose-600 bg-rose-100 px-2 py-0.5 rounded-lg hover:bg-rose-600 hover:text-white transition-all">✨ IA</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="cops-problema" rows="3" oninput="window.copsUpdateField('problema', this.value)"
+                                                class="w-full bg-transparent text-sm font-medium text-slate-700 leading-relaxed border-none outline-none resize-none focus:bg-rose-100/30 rounded-xl p-1 transition-all"></textarea>
                                         </div>
                                         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-                                            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">S₁ — Solução Imaginada (pelo cliente)</p>
-                                            <p id="cops-solucao-imaginada" class="text-sm font-medium text-slate-500 italic leading-relaxed"></p>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">S₁ — Solução Imaginada (pelo cliente)</p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[8px] text-slate-400 font-medium">✏️ editável</span>
+                                                    <button onclick="window.copsRefinarCampo('solucao_imaginada')"
+                                                        class="text-[8px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg hover:bg-slate-600 hover:text-white transition-all">✨ IA</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="cops-solucao-imaginada" rows="3" oninput="window.copsUpdateField('solucao_imaginada', this.value)"
+                                                class="w-full bg-transparent text-sm font-medium text-slate-500 italic leading-relaxed border-none outline-none resize-none focus:bg-slate-100 rounded-xl p-1 transition-all"></textarea>
                                         </div>
                                         <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
-                                            <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-2">S₂ — Solução Efetiva (FNW)</p>
-                                            <p id="cops-solucao-efetiva" class="text-sm font-medium text-emerald-800 leading-relaxed font-bold"></p>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest">S₂ — Solução Efetiva (FNW)</p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[8px] text-emerald-400 font-medium">✏️ editável</span>
+                                                    <button onclick="window.copsRefinarCampo('solucao_efetiva')"
+                                                        class="text-[8px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all">✨ IA</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="cops-solucao-efetiva" rows="4" oninput="window.copsUpdateField('solucao_efetiva', this.value)"
+                                                class="w-full bg-transparent text-sm font-bold text-emerald-800 leading-relaxed border-none outline-none resize-none focus:bg-emerald-100/30 rounded-xl p-1 transition-all"></textarea>
                                         </div>
                                     </div>
 

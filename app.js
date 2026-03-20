@@ -4181,27 +4181,37 @@ Responda APENAS em JSON válido com esta estrutura exata:
         const clean = resposta.replace(/```json|```/g,'').trim();
         copsResultado = JSON.parse(clean);
 
-        // Renderizar resultado
-        document.getElementById('cops-contexto').textContent = copsResultado.contexto || '';
-        document.getElementById('cops-ocorrencia').textContent = copsResultado.ocorrencia || '';
-        document.getElementById('cops-problema').textContent = copsResultado.problema || '';
-        document.getElementById('cops-solucao-imaginada').textContent = copsResultado.solucao_imaginada || '';
-        document.getElementById('cops-solucao-efetiva').textContent = copsResultado.solucao_efetiva || '';
+        // Renderizar resultado nos campos editáveis
+        const setTA = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val || ''; el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }};
+        setTA('cops-contexto',          copsResultado.contexto);
+        setTA('cops-ocorrencia',         copsResultado.ocorrencia);
+        setTA('cops-problema',           copsResultado.problema);
+        setTA('cops-solucao-imaginada',  copsResultado.solucao_imaginada);
+        setTA('cops-solucao-efetiva',    copsResultado.solucao_efetiva);
 
         // Hipóteses selecionáveis
         copsHipotesesSelecionadas = [];
         const hipEl = document.getElementById('cops-hipoteses');
         const tipoColors = { Assessoria:'bg-blue-100 text-blue-700', Mentoria:'bg-purple-100 text-purple-700', Consultoria:'bg-amber-100 text-amber-700', Comunidade:'bg-emerald-100 text-emerald-700', Projeto:'bg-rose-100 text-rose-700' };
         hipEl.innerHTML = (copsResultado.hipoteses || []).map((h, i) => `
-            <div onclick="window.copsToggleHip(${i}, this)"
-                class="cops-hip flex items-start gap-3 p-4 bg-white border-2 border-violet-100 rounded-2xl cursor-pointer hover:border-violet-400 transition-all">
-                <div class="w-5 h-5 rounded-full border-2 border-violet-300 flex items-center justify-center flex-shrink-0 mt-0.5 cops-check-${i}"></div>
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
-                        <p class="text-xs font-black text-slate-800">${h.titulo}</p>
-                        <span class="text-[8px] font-black px-2 py-0.5 rounded-full ${tipoColors[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span>
+            <div class="bg-white border-2 border-violet-100 rounded-2xl overflow-hidden transition-all cops-hip-wrapper-${i}">
+                <!-- Header clicável para selecionar -->
+                <div onclick="window.copsToggleHip(${i}, this.closest('.cops-hip-wrapper-${i}'))"
+                    class="cops-hip flex items-start gap-3 p-4 cursor-pointer hover:bg-violet-50 transition-all">
+                    <div class="w-5 h-5 rounded-full border-2 border-violet-300 flex items-center justify-center flex-shrink-0 mt-0.5 cops-check-${i}"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <input class="flex-1 text-xs font-black text-slate-800 bg-transparent border-none outline-none"
+                                value="${h.titulo}" onclick="event.stopPropagation()"
+                                onchange="window.copsUpdateHip(${i}, 'titulo', this.value)">
+                            <span class="text-[8px] font-black px-2 py-0.5 rounded-full ${tipoColors[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span>
+                            <button onclick="event.stopPropagation(); window.copsRefinarHip(${i})"
+                                class="text-[8px] font-black text-violet-600 bg-violet-100 px-2 py-0.5 rounded-lg hover:bg-violet-600 hover:text-white transition-all">✨ IA</button>
+                        </div>
+                        <textarea class="w-full text-[11px] text-slate-500 font-medium leading-relaxed bg-transparent border-none outline-none resize-none"
+                            rows="2" onclick="event.stopPropagation()"
+                            onchange="window.copsUpdateHip(${i}, 'descricao', this.value)">${h.descricao}</textarea>
                     </div>
-                    <p class="text-[11px] text-slate-500 font-medium leading-relaxed">${h.descricao}</p>
                 </div>
             </div>`).join('');
 
@@ -4485,4 +4495,108 @@ window.copsReset = function() {
     _origCopsReset();
     const histEl = document.getElementById('cops-refine-history');
     if (histEl) histEl.classList.add('hidden');
+};
+
+// Atualizar campo COPS quando usuário edita manualmente
+window.copsUpdateField = function(field, val) {
+    if (!copsResultado) return;
+    copsResultado[field] = val;
+};
+
+// Refinar campo específico com IA
+window.copsRefinarCampo = async function(campo) {
+    if (!copsResultado) return;
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
+        return;
+    }
+
+    const campoLabels = {
+        contexto: 'Contexto', ocorrencia: 'Ocorrência',
+        problema: 'Problema Real', solucao_imaginada: 'Solução Imaginada',
+        solucao_efetiva: 'Solução Efetiva FNW'
+    };
+
+    const instrucao = prompt('Como refinar o campo "' + campoLabels[campo] + '"?\nEx: "Seja mais específico", "Inclua dados do portfólio", "Foco no público 50+"');
+    if (!instrucao) return;
+
+    window.showToast('Refinando campo...');
+
+    try {
+        const sysPrompt = 'Você é um Estrategista Sênior FNW. Reescreva APENAS o campo solicitado do diagnóstico COPS, aplicando a instrução dada. Responda SOMENTE com o texto do campo, sem explicações.';
+        const userPrompt = 'COPS completo:\n' +
+            'C: ' + copsResultado.contexto + '\n' +
+            'O: ' + copsResultado.ocorrencia + '\n' +
+            'P: ' + copsResultado.problema + '\n' +
+            'S1: ' + copsResultado.solucao_imaginada + '\n' +
+            'S2: ' + copsResultado.solucao_efetiva + '\n\n' +
+            copsBuildContext() + '\n\n' +
+            'Reescreva APENAS o campo "' + campoLabels[campo] + '" aplicando: ' + instrucao;
+
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+        const novoValor = resposta.replace(/```/g,'').trim();
+
+        copsResultado[campo] = novoValor;
+        const el = document.getElementById('cops-' + campo.replace('_','-'));
+        if (el) {
+            el.value = novoValor;
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+        window.showToast('Campo refinado! ✓');
+    } catch(e) {
+        window.showToast('Erro: ' + e.message, 'warning');
+    }
+};
+
+// Atualizar hipótese manualmente
+window.copsUpdateHip = function(idx, field, val) {
+    if (!copsResultado || !copsResultado.hipoteses[idx]) return;
+    copsResultado.hipoteses[idx][field] = val;
+};
+
+// Refinar hipótese individual com IA
+window.copsRefinarHip = async function(idx) {
+    if (!copsResultado || !copsResultado.hipoteses[idx]) return;
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
+        return;
+    }
+
+    const h = copsResultado.hipoteses[idx];
+    const instrucao = prompt(
+        'Refinar hipótese "' + h.titulo + '":\n' +
+        'Ex: "Seja mais específico nos entregáveis", "Aproxime do contexto do cliente", "Inclua prazo estimado", "Foque no ROI"'
+    );
+    if (!instrucao) return;
+
+    window.showToast('Refinando hipótese...');
+
+    try {
+        const sysPrompt = 'Você é um Estrategista Sênior FNW. Reescreva a hipótese de entrega aplicando a instrução. Responda APENAS em JSON com: {"titulo": "...", "descricao": "..."}';
+        const userPrompt =
+            'COPS:\nP: ' + copsResultado.problema + '\nS2: ' + copsResultado.solucao_efetiva + '\n\n' +
+            'Hipótese atual:\nTítulo: ' + h.titulo + '\nDescrição: ' + h.descricao + '\nTipo: ' + h.tipo + '\n\n' +
+            copsBuildContext() + '\n\n' +
+            'Instrução: ' + instrucao;
+
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+        const clean = resposta.replace(/```json|```/g,'').trim();
+        const parsed = JSON.parse(clean);
+
+        if (parsed.titulo) copsResultado.hipoteses[idx].titulo = parsed.titulo;
+        if (parsed.descricao) copsResultado.hipoteses[idx].descricao = parsed.descricao;
+
+        // Atualizar UI
+        const wrapper = document.querySelector('.cops-hip-wrapper-' + idx);
+        if (wrapper) {
+            const inputTitulo = wrapper.querySelector('input');
+            const taDesc = wrapper.querySelector('textarea');
+            if (inputTitulo) inputTitulo.value = parsed.titulo || h.titulo;
+            if (taDesc) taDesc.value = parsed.descricao || h.descricao;
+        }
+        window.showToast('Hipótese refinada! ✓');
+    } catch(e) {
+        window.showToast('Erro: ' + e.message, 'warning');
+    }
 };
