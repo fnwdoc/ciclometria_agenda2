@@ -4321,13 +4321,11 @@ window.copsReadFile = async function(evt) {
         let texto = '';
 
         if (file.name.endsWith('.pdf')) {
-            // PDF — usar FileReader como base64 e extrair texto via PDF.js CDN
             texto = await copsReadPDF(file);
         } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
-            // DOCX — usar mammoth se disponível, senão aviso
             texto = await copsReadDOCX(file);
         } else {
-            // TXT, MD, CSV — leitura direta
+            // TXT, MD, CSV, HTML, HTM, JSON, XML, JS, TS — leitura direta como texto
             texto = await file.text();
         }
 
