@@ -5154,37 +5154,34 @@ window.simGerarHTMLCliente = async function() {
             ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
             : '';
 
-        const sysPrompt = `Você é estrategista sênior da FNW Assessoria especializado em vendas para academias.
-Gere um JSON para personalizar uma proposta self-service. Perspectiva: o CLIENTE (academia) vê seus CUSTOS e ROI.
+        const sysPrompt = `Você é estrategista sênior da FNW Assessoria especializado em soluções comerciais de IA.
+Gere um JSON para personalizar uma proposta. O CLIENTE vê seus CUSTOS e calcula seu próprio ROI.
 
-REGRAS ABSOLUTAS — NUNCA ALTERE:
+REGRAS ABSOLUTAS — NUNCA VIOLE:
 - implantacao_por_rede: SEMPRE 20000
-- mensalidade_cheia: SEMPRE 6500
+- mensalidade_cheia: SEMPRE 6500  
 - mensalidade_negociada: SEMPRE 5525
-- custo_implantacao de cada bloco: SEMPRE 4000 (igual para todos)
-- unidades_min: SEMPRE 3
-- unidades_max: SEMPRE 10
-
-Para o ROI, use os dados do contexto (ticket médio, total de alunos) para calcular o potencial real.
-Fórmula: novos_alunos_mes = total_alunos * 0.60 / 12 → receita_extra = novos_alunos_mes * ticket_medio
+- custo_implantacao de cada bloco: SEMPRE 4000
+- unidades_min: SEMPRE 3, unidades_max: SEMPRE 10
+- OS BLOCOS devem refletir EXATAMENTE os produtos/serviços descritos no contexto — NÃO invente módulos genéricos
+- roi_estimado de cada bloco: descreva o IMPACTO QUALITATIVO (ex: "Reduz tempo de prospecção em 70%") — NUNCA valores monetários inventados
+- O cálculo financeiro de ROI é feito pelo sistema com dados que o cliente vai preencher
 
 Responda APENAS em JSON válido:
 {
-  "titulo": "Nome da empresa — Proposta PLUG IA",
+  "titulo": "Nome da empresa — Proposta",
   "subtitulo": "Subtítulo contextualizado",
   "resumo_inicial": "Abertura empática e direta (2-3 frases)",
-  "roi_argumento": "Argumento de ROI com números reais do contexto (ticket médio, alunos, receita extra estimada)",
-  "ticket_medio": 200,
-  "total_alunos": 100,
+  "roi_argumento": "Argumento qualitativo de ROI baseado no segmento",
   "blocos": [
-    {"nome": "Nome do módulo", "desc": "Benefício específico para esta academia", "custo_implantacao": 4000, "roi_estimado": "ROI com números reais", "recomendado": true}
+    {"nome": "Nome fiel ao contexto", "desc": "Benefício específico", "custo_implantacao": 4000, "roi_estimado": "Impacto qualitativo sem valores inventados", "recomendado": true}
   ],
   "implantacao_por_rede": 20000,
   "mensalidade_cheia": 6500,
   "mensalidade_negociada": 5525,
   "unidades_min": 3,
   "unidades_max": 10,
-  "frase_impacto": "Frase de impacto com números reais",
+  "frase_impacto": "Frase de impacto específica para este segmento",
   "nota_rodape": "Rodapé personalizado"
 }`;
 
@@ -5241,22 +5238,21 @@ Responda APENAS em JSON válido:
 };
 
 function simGerarHTMLStandalone(dados, wpp) {
-    const fmt = "new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format";
-    const blocos = dados.blocos || [];
-    const unMin  = dados.unidades_min || 3;
-    const unMax  = dados.unidades_max || 10;
-    const impl   = dados.implantacao_por_rede || 20000;
-    const mensC  = dados.mensalidade_cheia || 6500;
-    const mensN  = dados.mensalidade_negociada || 5525;
+    const blocos   = dados.blocos || [];
+    const unMin    = dados.unidades_min || 3;
+    const unMax    = dados.unidades_max || 10;
+    const impl     = dados.implantacao_por_rede || 20000;
+    const mensC    = dados.mensalidade_cheia || 6500;
+    const mensN    = dados.mensalidade_negociada || 5525;
 
-    // Opções de unidades por mês (1..unMax)
-    const opcoesUnidMes = Array.from({length:unMax}, (_,i) => i+1)
-        .map(n => `<label class="flex-1 flex items-center justify-center p-2 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-xs font-bold"><input type="radio" name="unid_mes" value="${n}" ${n===1?'checked':''} onchange="calcular()" class="mr-1 accent-indigo-600">${n}</label>`)
+    const fmtBRL   = "new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format";
+
+    const opcoesUnidRede = Array.from({length: unMax - unMin + 1}, (_,i) => i + unMin)
+        .map(n => `<option value="${n}" ${n===unMin?'selected':''}>${n} unidade${n>1?'s':''}</option>`)
         .join('');
 
-    // Opções de unidades por rede
-    const opcoesUnidRede = Array.from({length: unMax - unMin + 1}, (_,i) => i + unMin)
-        .map(n => `<option value="${n}" ${n===unMin?'selected':''}>${n} unidades</option>`)
+    const opcoesUnidMes = Array.from({length: unMax}, (_,i) => i+1)
+        .map(n => `<label class="flex items-center justify-center p-2 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-indigo-400 text-xs font-bold transition-all"><input type="radio" name="unid_mes" value="${n}" ${n===1?'checked':''} onchange="calcular()" class="mr-1 accent-indigo-600">${n}</label>`)
         .join('');
 
     const blocosHTML = blocos.map((b,i) => `
@@ -5269,11 +5265,11 @@ function simGerarHTMLStandalone(dados, wpp) {
                 <h3 class="font-black text-lg text-gray-800">${b.nome}</h3>
                 <p class="text-sm text-gray-500 mt-1 leading-relaxed">${b.desc}</p>
                 <div class="mt-2 flex items-center gap-3 flex-wrap">
-                    <span class="text-xs font-black text-indigo-600">Investimento: R$ ${(b.custo_implantacao||4000).toLocaleString('pt-BR')}</span>
-                    <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">📈 ${b.roi_estimado||''}</span>
+                    <span class="text-xs font-black text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">Investimento: R$ ${(b.custo_implantacao||4000).toLocaleString('pt-BR')}</span>
+                    <span class="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">📈 ${b.roi_estimado||''}</span>
                 </div>
             </div>
-            ${b.recomendado?'<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg uppercase h-fit">✨ Recomendado</span>':''}
+            ${b.recomendado?'<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg uppercase h-fit mt-1">✨ Recomendado</span>':''}
         </div>`).join('');
 
     const wppBtn = wpp
@@ -5290,18 +5286,20 @@ function simGerarHTMLStandalone(dados, wpp) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${dados.titulo||'Proposta PlugAI'}</title>
+<title>${dados.titulo||'Proposta'}</title>
 <script src="https://cdn.tailwindcss.com"><\/script>
 <style>
   html{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;scroll-behavior:smooth}
   body{background:#f1f5f9}
-  .checklist-item.checked{background-color:#eef2ff;border-color:#6366f1}
-  .checklist-item.checked .check-indicator{background:#4f46e5;border-color:#4f46e5;color:white}
+  .checklist-item.checked{background-color:#eef2ff!important;border-color:#6366f1!important}
+  .checklist-item.checked .check-indicator{background:#4f46e5!important;border-color:#4f46e5!important;color:white!important}
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   @media print{.no-print{display:none!important}body{background:white}}
 </style>
 </head>
 <body>
 
+<!-- Header -->
 <header class="bg-[#1e1b4b] text-white py-8 shadow-2xl">
   <div class="max-w-4xl mx-auto px-6">
     <img src="https://geriah-suite.vercel.app/logo.png" class="h-12 mb-4 object-contain" alt="GERiAH">
@@ -5310,15 +5308,16 @@ function simGerarHTMLStandalone(dados, wpp) {
   </div>
 </header>
 
-<!-- Sticky: o que o cliente está escolhendo -->
-<div class="sticky top-0 z-10 bg-indigo-900/90 backdrop-blur-sm text-white shadow-lg py-4">
+<!-- Sticky resumo -->
+<div class="sticky top-0 z-10 bg-indigo-900/90 backdrop-blur-sm text-white shadow-lg py-3">
   <div class="max-w-4xl mx-auto px-6">
-    <p class="text-[10px] text-indigo-300 font-black uppercase tracking-widest mb-2">📊 Sua Simulação</p>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-      <div><p class="text-[9px] opacity-60">Módulos</p><p id="q-blocos" class="text-xl font-black">0</p></div>
-      <div><p class="text-[9px] opacity-60">Investimento Módulos</p><p id="q-val-blocos" class="text-lg font-black">R$ 0</p></div>
-      <div><p class="text-[9px] opacity-60">Implantação</p><p id="q-impl" class="text-lg font-black">R$ 0</p></div>
-      <div><p class="text-[9px] opacity-60">Total Mês 1</p><p id="q-total" class="text-xl font-black text-yellow-300">R$ 0</p></div>
+    <p class="text-[9px] text-indigo-300 font-black uppercase tracking-widest mb-2">📊 Minha Simulação</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
+      <div><p class="text-[8px] opacity-60">Módulos</p><p id="q-blocos" class="text-lg font-black">0</p></div>
+      <div><p class="text-[8px] opacity-60">Módulos (R$)</p><p id="q-val-blocos" class="text-base font-black">R$ 0</p></div>
+      <div><p class="text-[8px] opacity-60">Implantação</p><p id="q-impl" class="text-base font-black">R$ 20.000</p></div>
+      <div><p class="text-[8px] opacity-60">Mensalidade/mês</p><p id="q-mens" class="text-base font-black">R$ 0</p></div>
+      <div><p class="text-[8px] opacity-60">Total Mês 1</p><p id="q-total" class="text-lg font-black text-yellow-300">R$ 0</p></div>
     </div>
   </div>
 </div>
@@ -5330,73 +5329,132 @@ function simGerarHTMLStandalone(dados, wpp) {
     <p class="text-gray-700 text-lg leading-relaxed font-medium">${dados.resumo_inicial||''}</p>
   </div>
 
-  <!-- ROI Banner -->
+  <!-- Banner ROI -->
   <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-8 text-white shadow-xl">
-    <div class="flex items-start gap-4">
-      <div class="text-5xl font-black opacity-90">60%</div>
+    <div class="flex items-start gap-6">
+      <div class="text-6xl font-black opacity-90 leading-none">60%</div>
       <div>
-        <p class="text-xl font-black">dos novos contratos de academias vêm da nossa solução integrada</p>
-        <p class="text-emerald-100 mt-2 font-medium leading-relaxed">${dados.roi_argumento||'Histórico comprovado: academias que implementam nossa solução registram aumento significativo na taxa de conversão de novos alunos.'}</p>
+        <p class="text-xl font-black">dos novos contratos vêm da nossa solução integrada</p>
+        <p class="text-emerald-100 mt-2 font-medium leading-relaxed">${dados.roi_argumento||''}</p>
       </div>
+    </div>
+  </div>
+
+  <!-- DIAGNÓSTICO DO NEGÓCIO — inputs do cliente -->
+  <div class="bg-amber-50 border-t-4 border-amber-500 rounded-3xl p-8 space-y-5">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🔍</span>
+      <div>
+        <h2 class="text-xl font-black text-amber-800">Diagnóstico do seu Negócio</h2>
+        <p class="text-sm text-amber-600 font-medium">Preencha os dados abaixo para ver seu ROI personalizado</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-2xl p-4 space-y-2">
+        <label class="text-xs font-black text-amber-700 uppercase tracking-widest block">👥 Nº de Alunos Ativos</label>
+        <input type="number" id="diag-alunos" value="100" min="10" max="10000" oninput="calcular()"
+          class="w-full text-3xl font-black text-amber-800 bg-transparent border-none outline-none">
+        <p class="text-[10px] text-amber-500 font-medium">Total de alunos matriculados hoje</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 space-y-2">
+        <label class="text-xs font-black text-amber-700 uppercase tracking-widest block">💰 Ticket Médio Mensal</label>
+        <div class="flex items-baseline gap-1">
+          <span class="text-lg font-black text-amber-800">R$</span>
+          <input type="number" id="diag-ticket" value="200" min="50" max="2000" oninput="calcular()"
+            class="w-full text-3xl font-black text-amber-800 bg-transparent border-none outline-none">
+        </div>
+        <p class="text-[10px] text-amber-500 font-medium">Mensalidade média por aluno</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 space-y-2">
+        <label class="text-xs font-black text-amber-700 uppercase tracking-widest block">📊 Margem de Lucro Líquido</label>
+        <div class="flex items-baseline gap-1">
+          <input type="number" id="diag-margem" value="20" min="1" max="90" oninput="calcular()"
+            class="w-full text-3xl font-black text-amber-800 bg-transparent border-none outline-none">
+          <span class="text-lg font-black text-amber-800">%</span>
+        </div>
+        <p class="text-[10px] text-amber-500 font-medium">Margem líquida atual do negócio</p>
+      </div>
+    </div>
+    <!-- ROI calculado em tempo real -->
+    <div class="bg-white rounded-2xl p-5 space-y-3">
+      <p class="text-xs font-black text-amber-700 uppercase tracking-widest">📈 Seu ROI Estimado com a Solução</p>
+      <div class="grid md:grid-cols-4 gap-3">
+        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+          <p class="text-[9px] font-black text-emerald-600 uppercase mb-1">Novos alunos/mês</p>
+          <p id="roi-novos-alunos" class="text-2xl font-black text-emerald-700">0</p>
+          <p class="text-[9px] text-emerald-500">via plataforma (60%÷12)</p>
+        </div>
+        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+          <p class="text-[9px] font-black text-emerald-600 uppercase mb-1">Receita extra/mês</p>
+          <p id="roi-receita-mes" class="text-2xl font-black text-emerald-700">R$ 0</p>
+          <p class="text-[9px] text-emerald-500">novos alunos × ticket</p>
+        </div>
+        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+          <p class="text-[9px] font-black text-emerald-600 uppercase mb-1">Lucro extra/mês</p>
+          <p id="roi-lucro-mes" class="text-2xl font-black text-emerald-700">R$ 0</p>
+          <p class="text-[9px] text-emerald-500">× margem líquida</p>
+        </div>
+        <div class="bg-indigo-50 rounded-xl p-3 text-center border-2 border-indigo-200">
+          <p class="text-[9px] font-black text-indigo-600 uppercase mb-1">Payback</p>
+          <p id="roi-payback" class="text-2xl font-black text-indigo-700">—</p>
+          <p class="text-[9px] text-indigo-500">meses p/ recuperar investimento</p>
+        </div>
+      </div>
+      <div id="roi-resumo" class="bg-slate-50 rounded-xl p-3 text-sm text-slate-600 font-medium leading-relaxed hidden"></div>
     </div>
   </div>
 
   <!-- Módulos -->
   <div class="bg-indigo-50 border-t-4 border-indigo-600 rounded-3xl p-8 space-y-5">
     <h2 class="text-2xl font-black text-indigo-800">Monte seu Plano</h2>
-    <p class="text-sm text-indigo-600 font-medium">Selecione os módulos que fazem sentido para a sua academia. Cada módulo leva ~3 semanas.</p>
-    <p id="preco-label" class="text-sm font-black text-indigo-700">R$ ${(blocos[0]?.custo_implantacao||4000).toLocaleString('pt-BR')}/módulo · pacote completo = desconto especial</p>
+    <p class="text-sm text-indigo-600 font-medium">Selecione os módulos. Cada um leva ~3 semanas.</p>
+    <p id="preco-label" class="text-sm font-black text-indigo-700">R$ 4.000/módulo · pacote completo = desconto especial</p>
     <div class="grid md:grid-cols-2 gap-4" id="blocos-list">${blocosHTML}</div>
     <div class="bg-white rounded-2xl p-4">
       <p class="text-sm font-medium text-gray-600">
         <span class="font-black text-indigo-700">Módulos: </span>
-        <span id="blocos-count">0</span> selecionado(s) ·
-        <span id="blocos-msg" class="italic text-gray-400">Nenhum ainda.</span>
+        <span id="blocos-count">0</span> ·
+        <span id="blocos-msg" class="italic text-gray-400">Nenhum selecionado ainda.</span>
       </p>
-      <p class="text-xs text-indigo-500 mt-1">⏱️ Duração estimada: ~3 semanas por módulo.</p>
     </div>
     <p class="text-indigo-500 text-sm font-medium italic">"${dados.frase_impacto||''}"</p>
   </div>
 
-  <!-- Configuração financeira — perspectiva do cliente -->
+  <!-- Configuração financeira -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
     <h2 class="text-xl font-black text-gray-800">Configure sua Simulação Financeira</h2>
-
     <div class="grid md:grid-cols-2 gap-6">
       <div>
         <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Mensalidade por unidade</label>
-        <label class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-gray-400 mb-2 transition-all">
-          <input type="radio" name="mensalidade" value="${mensC}" checked onchange="calcular()" class="accent-gray-600">
+        <label class="flex items-start gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-gray-400 mb-3 transition-all">
+          <input type="radio" name="mensalidade" value="${mensC}" checked onchange="calcular()" class="mt-1 accent-gray-600">
           <div>
             <p class="font-bold text-sm">Plano Cheio: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensC)}/unidade/mês</p>
             <p class="text-xs text-gray-500">Acesso completo a todos os recursos</p>
           </div>
         </label>
-        <label class="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl cursor-pointer border-2 hover:border-emerald-400 transition-all">
-          <input type="radio" name="mensalidade" value="${mensN}" onchange="calcular()" class="accent-emerald-600">
+        <label class="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl cursor-pointer border-2 hover:border-emerald-400 transition-all">
+          <input type="radio" name="mensalidade" value="${mensN}" onchange="calcular()" class="mt-1 accent-emerald-600">
           <div>
             <p class="font-bold text-sm text-emerald-700">Plano Negociado: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensN)}/unidade/mês</p>
             <p class="text-xs text-emerald-600">Condição especial para adesão antecipada</p>
           </div>
         </label>
       </div>
-
       <div class="space-y-4">
         <div>
           <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Total de unidades da rede</label>
           <select id="unidades" onchange="calcular()" class="w-full p-3 border border-gray-200 rounded-xl bg-white font-bold text-sm outline-none focus:border-indigo-400">
             ${opcoesUnidRede}
           </select>
-          <p class="text-xs text-gray-400 mt-1">*Mínimo ${unMin} unidades por rede.</p>
         </div>
         <div>
-          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Unidades que pretende integrar por mês</label>
-          <div class="flex gap-1 flex-wrap">${opcoesUnidMes}</div>
-          <p class="text-xs text-gray-400 mt-1">Ritmo de integração mensal das unidades.</p>
+          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Unidades a integrar por mês</label>
+          <div class="grid grid-cols-5 gap-1">${opcoesUnidMes}</div>
+          <p class="text-xs text-gray-400 mt-1">Ritmo de integração mensal.</p>
         </div>
       </div>
     </div>
-
     <div>
       <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Período do plano</label>
       <div class="flex gap-2 flex-wrap">
@@ -5405,24 +5463,24 @@ function simGerarHTMLStandalone(dados, wpp) {
     </div>
   </div>
 
-  <!-- Viabilidade Financeira (perspectiva da academia) -->
+  <!-- Viabilidade -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4">
     <h2 class="text-xl font-black text-gray-800">💰 Viabilidade Financeira</h2>
     <div class="grid md:grid-cols-2 gap-4">
       <div class="bg-purple-50 border border-purple-100 rounded-2xl p-5">
-        <p class="text-xs font-black text-purple-600 uppercase tracking-widest mb-1">Implantação (única)</p>
+        <p class="text-xs font-black text-purple-600 uppercase tracking-widest mb-1">Implantação (taxa única)</p>
         <p class="text-2xl font-black text-gray-800">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(impl)}</p>
-        <p class="text-xs text-gray-500 mt-1">Taxa única independente do nº de unidades</p>
+        <p class="text-xs text-gray-500 mt-1">Independente do nº de unidades</p>
       </div>
       <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-        <p class="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Mensalidade por unidade</p>
-        <p class="text-2xl font-black text-gray-800" id="val-mens-unit">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensC)}</p>
+        <p class="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Mensalidade/unidade</p>
+        <p id="val-mens-unit" class="text-2xl font-black text-gray-800">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensC)}</p>
         <p class="text-xs text-gray-500 mt-1">Por unidade integrada ativa</p>
       </div>
     </div>
   </div>
 
-  <!-- Resultado -->
+  <!-- Projeção -->
   <div class="bg-slate-900 text-white rounded-3xl p-8 space-y-5">
     <h2 class="text-xl font-black text-yellow-400 uppercase tracking-widest">📈 Projeção do Investimento</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -5443,17 +5501,20 @@ function simGerarHTMLStandalone(dados, wpp) {
         <p id="r-total-mes1" class="text-xl font-black text-yellow-300">R$ 0</p>
       </div>
     </div>
-    <div class="bg-slate-800 rounded-2xl p-4">
-      <p class="text-xs text-slate-400 mb-2">Investimento total no período</p>
-      <p id="r-total-periodo" class="text-3xl font-black text-white">R$ 0</p>
-      <p id="r-periodo-label" class="text-xs text-yellow-400 mt-1">12 meses</p>
-    </div>
-    <div class="bg-emerald-900/50 border border-emerald-700 rounded-2xl p-4">
-      <p class="text-xs text-emerald-400 font-black uppercase tracking-widest mb-1">📊 Potencial de Retorno</p>
-      <p class="text-sm text-emerald-200 font-medium" id="r-roi-texto">Selecione os módulos e configure a simulação para ver o potencial de retorno.</p>
+    <div class="bg-slate-800 rounded-2xl p-4 flex items-center justify-between">
+      <div>
+        <p class="text-xs text-slate-400 mb-1">Investimento total no período</p>
+        <p id="r-total-periodo" class="text-3xl font-black">R$ 0</p>
+        <p id="r-periodo-label" class="text-xs text-yellow-400 mt-1">12 meses</p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs text-slate-400 mb-1">Lucro extra no período</p>
+        <p id="r-lucro-periodo" class="text-2xl font-black text-emerald-400">R$ 0</p>
+        <p class="text-xs text-emerald-600 mt-1">com dados do diagnóstico</p>
+      </div>
     </div>
     <div class="text-xs text-slate-500 border-t border-slate-700 pt-3">
-      Unidades total: <span id="r-unidades">0</span> ·
+      Unidades: <span id="r-unidades">0</span> ·
       Integrando: <span id="r-unid-mes">1</span>/mês ·
       Mensalidade/unidade: <span id="r-val-unid">R$ 0</span>
     </div>
@@ -5462,7 +5523,7 @@ function simGerarHTMLStandalone(dados, wpp) {
   <!-- CTA -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4 no-print">
     <h2 class="text-xl font-black text-gray-800">✅ Confirmar Escolhas</h2>
-    <p class="text-sm text-gray-500 font-medium">Quando estiver satisfeito com a simulação, confirme suas escolhas e entraremos em contato:</p>
+    <p class="text-sm text-gray-500">Quando estiver satisfeito com a simulação, confirme suas escolhas:</p>
     ${wppBtn}
     <button onclick="window.print()" class="w-full bg-blue-100 text-blue-700 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-200 transition-all">
       🖨️ Salvar como PDF
@@ -5472,8 +5533,7 @@ function simGerarHTMLStandalone(dados, wpp) {
 </main>
 
 <footer class="bg-slate-800 text-white py-6 text-center mt-8">
-  <p class="text-xs opacity-50 font-medium">${dados.nota_rodape||'© 2026 PLUG Ideias e Soluções Inteligentes · Todos os direitos reservados.'}</p>
-  <p class="text-[9px] opacity-30 mt-1">Proposta gerada via GERiAH Suite</p>
+  <p class="text-xs opacity-50">${dados.nota_rodape||'© 2026 GERiAH Suite · Todos os direitos reservados.'}</p>
 </footer>
 
 <script>
@@ -5499,7 +5559,7 @@ function calcular() {
   const allChecked = n === blocosDados.length && n >= 2;
   const valorBlocos = blocosChecked.reduce((s,c,i) => s+(c?(blocosDados[i].custo_implantacao||4000):0),0) * (allChecked?0.875:1);
 
-  const mens    = parseFloat(radio('mensalidade')||'${mensC}');
+  const mens     = parseFloat(radio('mensalidade')||'${mensC}');
   const unidades = parseInt($('unidades')?.value||'${unMin}');
   const unidMes  = parseInt(radio('unid_mes')||'1');
   const periodo  = parseInt(radio('periodo')||'12');
@@ -5508,65 +5568,90 @@ function calcular() {
   const totalMes1   = IMPL_UNICA + totalMens + valorBlocos;
   const totalPeriodo = IMPL_UNICA + (totalMens * periodo) + valorBlocos;
 
-  // ROI real: 60% dos alunos existentes são captados pela solução
-  // novos alunos/mês = (total_alunos * 60%) / 12 meses
-  const ticketMedio = ${dados.ticket_medio || 200};
-  const totalAlunos = ${dados.total_alunos || 100};
-  const novosAlunosMes = Math.round((totalAlunos * 0.60) / 12);
-  const receitaExtraMes = novosAlunosMes * ticketMedio;
-  const receitaExtraAno = receitaExtraMes * 12;
-  const roiTexto = n > 0
-    ? 'Com ' + n + ' módulo(s) ativo(s) e ' + unidades + ' unidade(s): estimamos ' + novosAlunosMes + ' novos alunos/mês captados via plataforma (60% de ' + totalAlunos + ' alunos × ticket médio de ' + fmt(ticketMedio) + ') = ' + fmt(receitaExtraMes) + '/mês de receita adicional → ' + fmt(receitaExtraAno) + '/ano.'
-    : 'Selecione os módulos para ver a projeção de retorno.';
+  // Dados do diagnóstico
+  const alunos  = parseFloat($('diag-alunos')?.value||100);
+  const ticket  = parseFloat($('diag-ticket')?.value||200);
+  const margem  = parseFloat($('diag-margem')?.value||20) / 100;
+
+  // ROI: 60% dos alunos captados via solução ÷ 12 meses
+  const novosAlunosMes   = Math.round((alunos * 0.60) / 12);
+  const receitaExtraMes  = novosAlunosMes * ticket;
+  const lucroExtraMes    = receitaExtraMes * margem;
+  const lucroExtraPeriodo = lucroExtraMes * periodo;
+  const payback = lucroExtraMes > 0 ? Math.ceil((IMPL_UNICA + valorBlocos) / lucroExtraMes) : null;
 
   const s = (id,v) => { const el=$(id); if(el) el.textContent=v; };
+  // Sticky
   s('q-blocos',n);
   s('q-val-blocos',fmt(valorBlocos));
   s('q-impl',fmt(IMPL_UNICA));
+  s('q-mens',fmt(totalMens));
   s('q-total',fmt(totalMes1));
+  // Projeção
   s('r-impl',fmt(IMPL_UNICA));
   s('r-mens',fmt(totalMens));
   s('r-blocos',fmt(valorBlocos));
   s('r-total-mes1',fmt(totalMes1));
   s('r-total-periodo',fmt(totalPeriodo));
+  s('r-lucro-periodo',fmt(lucroExtraPeriodo));
   s('r-periodo-label',periodo+' meses');
-  s('r-roi-texto',roiTexto);
   s('r-unidades',unidades);
   s('r-unid-mes',unidMes);
   s('r-val-unid',fmt(mens));
   s('val-mens-unit',fmt(mens));
+  // ROI diagnóstico
+  s('roi-novos-alunos',novosAlunosMes);
+  s('roi-receita-mes',fmt(receitaExtraMes));
+  s('roi-lucro-mes',fmt(lucroExtraMes));
+  s('roi-payback', payback ? payback + ' meses' : '—');
+  // Resumo ROI
+  const resumoEl = $('roi-resumo');
+  if (resumoEl && n > 0) {
+    resumoEl.classList.remove('hidden');
+    resumoEl.textContent = 'Com ' + n + ' módulo(s) e ' + alunos + ' alunos (ticket R$ ' + ticket + ', margem ' + Math.round(margem*100) + '%): ' + novosAlunosMes + ' novos alunos/mês × R$ ' + ticket + ' = ' + fmt(receitaExtraMes) + '/mês de receita extra → ' + fmt(lucroExtraMes) + '/mês de lucro adicional. Payback do investimento em ' + (payback||'—') + ' meses.';
+  } else if(resumoEl) {
+    resumoEl.classList.add('hidden');
+  }
+  // Blocos info
   s('blocos-count',n);
   s('blocos-msg',n===0?'Nenhum módulo selecionado.':allChecked?'Pacote completo! Desconto aplicado.':n+' módulo(s) selecionado(s).');
+  // Preco label
+  const pl=$('preco-label');
+  if(pl) pl.textContent = allChecked && n>=2 ? 'Pacote completo — desconto especial aplicado!' : 'R$ 4.000/módulo individual · todos = desconto';
 }
 
 function gerarResumoTexto() {
-  const n = blocosChecked.filter(Boolean).length;
-  const modelo = 'Plano selecionado';
+  const n = blocosDados.filter((_,i)=>blocosChecked[i]).length;
   const periodo = radio('periodo')||'12';
   const total = $('r-total-periodo')?.textContent||'';
-  const mens = radio('mensalidade');
-  const unidades = $('unidades')?.value;
-  const unidMes = radio('unid_mes')||'1';
-  const blocosSel = blocosDados.filter((_,i)=>blocosChecked[i]).map((b,i)=>(i+1)+'. '+b.nome).join('\\n');
+  const lucro = $('r-lucro-periodo')?.textContent||'';
+  const alunos = $('diag-alunos')?.value||'100';
+  const ticket = $('diag-ticket')?.value||'200';
+  const margem = $('diag-margem')?.value||'20';
+  const payback = $('roi-payback')?.textContent||'—';
+  const blocosSel = blocosDados.filter((_,i)=>blocosChecked[i]).map((b,j)=>(j+1)+'. '+b.nome).join('\\n');
   return [
-    '*PROPOSTA PLUG IA — MINHAS ESCOLHAS*','',
+    '*PROPOSTA — MINHAS ESCOLHAS*','',
+    '*Diagnóstico do negócio:*',
+    'Alunos: '+alunos+' · Ticket: R$'+ticket+' · Margem: '+margem+'%',
+    '',
     '*Módulos selecionados:*', blocosSel||'Nenhum','',
-    '*Total de unidades:* ' + unidades,
-    '*Unidades por mês:* ' + unidMes,
-    '*Mensalidade/unidade:* ' + fmt(parseFloat(mens||'${mensC}')),
+    '*Mensalidade/unidade:* ' + (radio('mensalidade')==='${mensN}'?'Negociado R$${mensN}':'Cheio R$${mensC}'),
+    '*Unidades:* ' + ($('unidades')?.value||'${unMin}'),
     '*Período:* ' + periodo + ' meses',
-    '*Total do investimento:* ' + total,'',
+    '*Investimento total:* ' + total,
+    '*Lucro extra estimado no período:* ' + lucro,
+    '*Payback estimado:* ' + payback,
+    '',
     '_(Enviado via Proposta Self-Service · GERiAH Suite)_'
   ].join('\\n');
 }
 
 function enviarWhatsApp() {
-  const url = 'https://wa.me/${wpp}?text=' + encodeURIComponent(gerarResumoTexto());
-  window.open(url,'_blank');
+  window.open('https://wa.me/${wpp}?text='+encodeURIComponent(gerarResumoTexto()),'_blank');
 }
-
 function copiarResumo() {
-  navigator.clipboard.writeText(gerarResumoTexto()).then(()=>alert('Resumo copiado! Cole no WhatsApp.'));
+  navigator.clipboard.writeText(gerarResumoTexto()).then(()=>alert('Resumo copiado!'));
 }
 
 calcular();
