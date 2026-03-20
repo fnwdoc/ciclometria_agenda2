@@ -5154,24 +5154,37 @@ window.simGerarHTMLCliente = async function() {
             ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
             : '';
 
-        const sysPrompt = `Você é estrategista sênior da FNW Assessoria especializado em vendas para academias e redes de fitness.
-Gere um JSON para personalizar uma proposta self-service. Perspectiva: o CLIENTE (academia) vê seus CUSTOS e ROI — não as comissões do assessor.
+        const sysPrompt = `Você é estrategista sênior da FNW Assessoria especializado em vendas para academias.
+Gere um JSON para personalizar uma proposta self-service. Perspectiva: o CLIENTE (academia) vê seus CUSTOS e ROI.
+
+REGRAS ABSOLUTAS — NUNCA ALTERE:
+- implantacao_por_rede: SEMPRE 20000
+- mensalidade_cheia: SEMPRE 6500
+- mensalidade_negociada: SEMPRE 5525
+- custo_implantacao de cada bloco: SEMPRE 4000 (igual para todos)
+- unidades_min: SEMPRE 3
+- unidades_max: SEMPRE 10
+
+Para o ROI, use os dados do contexto (ticket médio, total de alunos) para calcular o potencial real.
+Fórmula: novos_alunos_mes = total_alunos * 0.60 / 12 → receita_extra = novos_alunos_mes * ticket_medio
 
 Responda APENAS em JSON válido:
 {
   "titulo": "Nome da empresa — Proposta PLUG IA",
   "subtitulo": "Subtítulo contextualizado",
-  "resumo_inicial": "Abertura empática e direta para este cliente (2-3 frases)",
-  "roi_argumento": "Argumento de ROI baseado no histórico: 60% dos novos contratos de academias vêm de nossa solução integrada",
+  "resumo_inicial": "Abertura empática e direta (2-3 frases)",
+  "roi_argumento": "Argumento de ROI com números reais do contexto (ticket médio, alunos, receita extra estimada)",
+  "ticket_medio": 200,
+  "total_alunos": 100,
   "blocos": [
-    {"nome": "Nome do módulo específico", "desc": "O que a academia ganha com este módulo", "custo_implantacao": 4000, "roi_estimado": "Descrição do retorno esperado", "recomendado": true}
+    {"nome": "Nome do módulo", "desc": "Benefício específico para esta academia", "custo_implantacao": 4000, "roi_estimado": "ROI com números reais", "recomendado": true}
   ],
   "implantacao_por_rede": 20000,
   "mensalidade_cheia": 6500,
   "mensalidade_negociada": 5525,
   "unidades_min": 3,
   "unidades_max": 10,
-  "frase_impacto": "Frase de impacto específica para academias",
+  "frase_impacto": "Frase de impacto com números reais",
   "nota_rodape": "Rodapé personalizado"
 }`;
 
@@ -5495,10 +5508,15 @@ function calcular() {
   const totalMes1   = IMPL_UNICA + totalMens + valorBlocos;
   const totalPeriodo = IMPL_UNICA + (totalMens * periodo) + valorBlocos;
 
-  // ROI estimado: 60% dos novos contratos = receita extra por aluno
-  const roiMensal = Math.round(totalMens * 0.6);
+  // ROI real: 60% dos alunos existentes são captados pela solução
+  // novos alunos/mês = (total_alunos * 60%) / 12 meses
+  const ticketMedio = ${dados.ticket_medio || 200};
+  const totalAlunos = ${dados.total_alunos || 100};
+  const novosAlunosMes = Math.round((totalAlunos * 0.60) / 12);
+  const receitaExtraMes = novosAlunosMes * ticketMedio;
+  const receitaExtraAno = receitaExtraMes * 12;
   const roiTexto = n > 0
-    ? 'Com ' + n + ' módulo(s) ativo(s) e ' + unidades + ' unidade(s), estimamos geração de receita adicional de ' + fmt(roiMensal) + '/mês via novos alunos captados pela plataforma (base histórica: 60% de novos contratos).'
+    ? 'Com ' + n + ' módulo(s) ativo(s) e ' + unidades + ' unidade(s): estimamos ' + novosAlunosMes + ' novos alunos/mês captados via plataforma (60% de ' + totalAlunos + ' alunos × ticket médio de ' + fmt(ticketMedio) + ') = ' + fmt(receitaExtraMes) + '/mês de receita adicional → ' + fmt(receitaExtraAno) + '/ano.'
     : 'Selecione os módulos para ver a projeção de retorno.';
 
   const s = (id,v) => { const el=$(id); if(el) el.textContent=v; };
