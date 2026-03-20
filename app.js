@@ -1715,10 +1715,30 @@ function renderCRMActivities() {
         </div>`).join('');
 }
 
-function crmAddActivity(text) {
+function crmAddActivity(text, leadName, type) {
     if (!appState.crmActivities) appState.crmActivities = [];
-    appState.crmActivities.unshift({ id: Date.now(), text, timestamp: new Date().toISOString() });
-    if (appState.crmActivities.length > 20) appState.crmActivities = appState.crmActivities.slice(0, 20);
+    // Extrair nome do lead do texto se não fornecido (ex: 'Lead "Maria" atualizado')
+    if (!leadName) {
+        const match = text.match(/Lead "([^"]+)"/);
+        if (match) leadName = match[1];
+    }
+    // Inferir tipo se não fornecido
+    if (!type) {
+        if (text.includes('adicionado')) type = 'Novo Lead';
+        else if (text.includes('atualizado')) type = 'Atualização';
+        else if (text.includes('removido')) type = 'Remoção';
+        else if (text.includes('Import')) type = 'Import';
+        else if (text.includes('Exemplo')) type = 'Sistema';
+        else type = 'Atividade';
+    }
+    appState.crmActivities.unshift({
+        id: Date.now(),
+        text,
+        leadName: leadName || '',
+        type,
+        timestamp: new Date().toISOString()
+    });
+    if (appState.crmActivities.length > 50) appState.crmActivities = appState.crmActivities.slice(0, 50);
 }
 
 // Integração 3 — Autocomplete no campo client-name da Agenda
@@ -3489,29 +3509,31 @@ window.exportCRMExcel = function() {
     const hoje = moment();
 
     // ── ABA 1: LEADS ──────────────────────────────────────────────────────
-    const statusLabels = { lead:'Lead', mql:'MQL', sql:'SQL', pql:'PQL', sal:'SAL', customer:'Cliente' };
-    const canalLabels  = { website:'Website', social:'Social Media', email:'Email', referral:'Referral', paid:'Paid Ads', indicacao:'Indicação', evento:'Evento' };
+    const statusLabels  = { lead:'Lead', mql:'MQL', sql:'SQL', pql:'PQL', sal:'SAL', customer:'Cliente' };
+    const tipoLabels    = { partner:'Parceiro', multiplier:'Multiplicador', reserve:'Reserva' };
+    const canalLabels   = { website:'Website', social:'Social Media', email:'Email', referral:'Referral', paid:'Paid Ads', indicacao:'Indicação', evento:'Evento' };
 
-    const leadsRows = (appState.leads || []).map(l => {
-        // Próximo atendimento do CRM — campo é lead.name
-        const proxAtend = (appState.clients || [])
-            .filter(c => c.name === l.name && moment(c.date + 'T' + c.time).isSameOrAfter(hoje))
-            .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))[0];
+    const leadsRows = (appState.leads || [])
+        .sort((a,b) => (b.score||0) - (a.score||0))  // mesma ordem do CRM: score desc
+        .map(l => {
+            const proxAtend = (appState.clients || [])
+                .filter(c => c.name === l.name && moment(c.date + 'T' + c.time).isSameOrAfter(hoje))
+                .sort((a,b) => moment(a.date+'T'+a.time).diff(moment(b.date+'T'+b.time)))[0];
 
-        return {
-            'Nome':               l.name || '',
-            'Tipo':               l.type || '',
-            'Status':             statusLabels[l.status] || l.status || '',
-            'Canal':              canalLabels[l.channel] || l.channel || '',
-            'Score':              l.score || 0,
-            'Telefone':           l.phone || '',
-            'Email':              l.email || '',
-            'Empresa':            l.company || '',
-            'Próx. Atendimento':  proxAtend ? moment(proxAtend.date).format('DD/MM/YYYY') + ' ' + proxAtend.time : '',
-            'Observações':        l.notes || '',
-            'Criado em':          l.entryDate ? moment(l.entryDate).format('DD/MM/YYYY') : (l.createdAt ? moment(l.createdAt).format('DD/MM/YYYY') : '')
-        };
-    });
+            return {
+                'Nome':              l.name || '',
+                'Email':             l.email || '',
+                'Telefone':          l.phone || '',
+                'Score':             l.score || 0,
+                'Status':            statusLabels[l.status] || l.status || '',
+                'Tipo':              tipoLabels[l.type] || l.type || '',
+                'Canal':             canalLabels[l.channel] || l.channel || '',
+                'Próx. Atendimento': proxAtend ? moment(proxAtend.date).format('DD/MM/YYYY') + ' ' + proxAtend.time : '—',
+                'Empresa':           l.company || '',
+                'Observações':       l.notes || '',
+                'Criado em':         l.entryDate ? moment(l.entryDate).format('DD/MM/YYYY') : ''
+            };
+        });
 
     const wsLeads = XLSX.utils.json_to_sheet(leadsRows.length > 0 ? leadsRows : [{ 'Info': 'Nenhum lead cadastrado' }]);
 
@@ -3525,10 +3547,31 @@ window.exportCRMExcel = function() {
     // ── ABA 2: ATIVIDADES ─────────────────────────────────────────────────
     const atividadesRows = (appState.crmActivities || [])
         .sort((a,b) => moment(b.timestamp || b.date || 0).diff(moment(a.timestamp || a.date || 0)))
-        .map(a => ({
-            'Descrição':  a.text || a.description || '',
-            'Data':       a.timestamp ? moment(a.timestamp).format('DD/MM/YYYY HH:mm') : (a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : '')
-        }));
+        .map(a => {
+            const texto = a.text || a.description || '';
+            // Extrair lead do texto se não estiver salvo
+            let lead = a.leadName || '';
+            if (!lead) {
+                const m = texto.match(/Lead "([^"]+)"/);
+                if (m) lead = m[1];
+            }
+            // Inferir tipo se não estiver salvo
+            let tipo = a.type || '';
+            if (!tipo) {
+                if (texto.includes('adicionado')) tipo = 'Novo Lead';
+                else if (texto.includes('atualizado')) tipo = 'Atualização';
+                else if (texto.includes('removido')) tipo = 'Remoção';
+                else if (texto.includes('Import')) tipo = 'Import';
+                else if (texto.includes('Exemplo')) tipo = 'Sistema';
+                else tipo = 'Atividade';
+            }
+            return {
+                'Lead':       lead,
+                'Tipo':       tipo,
+                'Descrição':  texto,
+                'Data':       a.timestamp ? moment(a.timestamp).format('DD/MM/YYYY HH:mm') : (a.date ? moment(a.date).format('DD/MM/YYYY HH:mm') : '')
+            };
+        });
 
     const wsAtiv = XLSX.utils.json_to_sheet(atividadesRows.length > 0 ? atividadesRows : [{ 'Info': 'Nenhuma atividade registrada' }]);
     wsAtiv['!cols'] = [{wch:30}, {wch:20}, {wch:50}, {wch:18}];
