@@ -4263,14 +4263,19 @@ window.copsGerarProposta = async function() {
     try {
         const sysPrompt = 'Você é um Consultor Sênior da FNW Assessoria. Gere uma proposta de assessoria profissional, clara e persuasiva baseada no diagnóstico COPS fornecido. Use linguagem direta, empática e orientada a resultados. Formato: texto corrido em HTML simples (use <h3>, <p>, <strong>, <ul>, <li>).';
 
+        const entregaveisStr = (copsResultado._entregaveis && copsResultado._entregaveis.length > 0)
+            ? '\n\nENTREGÁVEIS SELECIONADOS (incluir na proposta):\n' + copsResultado._entregaveis.map((e,i) => (i+1) + '. ' + e).join('\n')
+            : '';
+
         const userPrompt = 'DIAGNÓSTICO COPS:\n' +
             'Contexto: ' + copsResultado.contexto + '\n' +
             'Problema: ' + copsResultado.problema + '\n' +
             'Solução Efetiva: ' + copsResultado.solucao_efetiva + '\n\n' +
-            'HIPÓTESES APROVADAS:\n' + hipSel.map(h => '- ' + h.titulo + ': ' + h.descricao).join('\n') + '\n\n' +
+            'HIPÓTESES APROVADAS:\n' + hipSel.map(h => '- ' + h.titulo + ': ' + h.descricao).join('\n') +
+            entregaveisStr + '\n\n' +
             'Cliente/Contexto: ' + ctxNome + '\n' +
             copsBuildContext() + '\n\n' +
-            'Gere uma proposta de assessoria completa com: abertura empática, diagnóstico resumido, solução proposta, entregáveis, próximos passos e CTA.';
+            'Gere uma proposta de assessoria completa com: abertura empática, diagnóstico resumido, solução proposta, entregáveis (use os listados acima), próximos passos e CTA.';
 
         const resposta = await window.callAI(userPrompt, sysPrompt);
 
@@ -4598,5 +4603,292 @@ window.copsRefinarHip = async function(idx) {
         window.showToast('Hipótese refinada! ✓');
     } catch(e) {
         window.showToast('Erro: ' + e.message, 'warning');
+    }
+};
+
+// =========================================================================
+// COPS Engine — Biblioteca de Entregáveis FNW
+// =========================================================================
+
+const copsEntregaveisFNW = [
+    // ── Assessoria & Estratégia ──────────────────────────────────────────
+    { id: 'e1',  grupo: 'Plataforma',     texto: 'Seleção, Definição e Configuração de Plataforma base para o HUB Educacional com Comunidade e Interações entre membros participantes' },
+    { id: 'e2',  grupo: 'Conteúdo',       texto: 'Plano de otimização de produção de conteúdo' },
+    { id: 'e3',  grupo: 'Conteúdo',       texto: 'Sessões de Alinhamento, Refinamento e Controle de Qualidade do Conteúdo' },
+    { id: 'e4',  grupo: 'Marketing',      texto: 'Plano de desenvolvimento de Marketing Digital' },
+    { id: 'e5',  grupo: 'Vendas',         texto: 'Plano de estrutura e estratégia de vendas' },
+    { id: 'e6',  grupo: 'Implementação',  texto: 'Implementação, medição e ajustes do ecossistema (Plataforma, Marketing Digital, Vendas)' },
+    { id: 'e7',  grupo: 'Acompanhamento', texto: 'Acompanhamento com reuniões semanais, quinzenais ou a cada 21 dias (conforme orçamento)' },
+    { id: 'e8',  grupo: 'Tecnologia',     texto: 'Acesso 24/7 à nossa plataforma proprietária de acompanhamento de atualizações' },
+    { id: 'e9',  grupo: 'Tecnologia',     texto: 'Acesso 24/7 ao Sistema interativo com atualizações da evolução da assessoria consultiva no NotebookLM (Google) configurado pela assessoria e disponibilizado com exclusividade para as partes interessadas' },
+    // ── Ferramentas GERiAH Suite ─────────────────────────────────────────
+    { id: 't1',  grupo: 'GERiAH Suite',   texto: 'Acesso ao GERiAH Suite — sistema operacional de gestão de assessoria com CRM, Agenda Ciclométrica e Foco por contextos' },
+    { id: 't2',  grupo: 'GERiAH Suite',   texto: 'Diagnóstico de Perfil Estratégico com PUV Audit — análise estruturada por pilares com score, personas e plano de ação personalizado' },
+    { id: 't3',  grupo: 'GERiAH Suite',   texto: 'Sessão de PUV Score — diagnóstico da Proposta Única de Valor com geração de posicionamento diferenciado' },
+    { id: 't4',  grupo: 'GERiAH Suite',   texto: 'Análise COPS — estruturação de qualquer situação em Contexto, Ocorrência, Problema, Solução Imaginada e Solução Efetiva com geração de proposta' },
+    { id: 't5',  grupo: 'GERiAH Suite',   texto: 'Business Plan integrado — planejamento de portfólio, receita máxima, projeção de escala e regra de divisão com múltiplas moedas' },
+    { id: 't6',  grupo: 'GERiAH Suite',   texto: 'Esteira de Receita Previsível — mapeamento da jornada LTi→MTi→HTi→DUN com Mapa do Tesouro e Máquina de Próxima Venda' },
+    { id: 't7',  grupo: 'GERiAH Suite',   texto: 'Assistente GERiAH com IA — consultor estratégico contextualizado com todos os dados do cliente para suporte contínuo' },
+    { id: 't8',  grupo: 'GERiAH Suite',   texto: 'Acesso à Comunidade PUVZap — grupo exclusivo de suporte, atualizações e troca entre membros da assessoria FNW' },
+];
+
+let copsEntregaveisSelecionados = new Set();
+let copsEntregaveisAberto = false;
+
+const grupoColors = {
+    'Plataforma': 'bg-blue-100 text-blue-700',
+    'Conteúdo': 'bg-amber-100 text-amber-700',
+    'Marketing': 'bg-pink-100 text-pink-700',
+    'Vendas': 'bg-emerald-100 text-emerald-700',
+    'Implementação': 'bg-violet-100 text-violet-700',
+    'Acompanhamento': 'bg-indigo-100 text-indigo-700',
+    'Tecnologia': 'bg-slate-100 text-slate-600',
+    'GERiAH Suite': 'bg-violet-100 text-violet-700'
+};
+
+window.copsToggleEntregaveis = function() {
+    const listEl = document.getElementById('cops-entregaveis-list');
+    const btn = document.getElementById('cops-entregaveis-toggle');
+    copsEntregaveisAberto = !copsEntregaveisAberto;
+
+    if (copsEntregaveisAberto) {
+        // Renderizar lista
+        listEl.innerHTML = copsEntregaveisFNW.map(e => `
+            <div onclick="window.copsToggleEntregavel('${e.id}')" id="cops-e-${e.id}"
+                class="flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${copsEntregaveisSelecionados.has(e.id) ? 'bg-emerald-900/40 border border-emerald-500/40' : 'bg-white/5 border border-white/10 hover:bg-white/10'}">
+                <div class="w-4 h-4 rounded border-2 ${copsEntregaveisSelecionados.has(e.id) ? 'bg-emerald-500 border-emerald-500' : 'border-slate-500'} flex items-center justify-center flex-shrink-0 mt-0.5 transition-all">
+                    ${copsEntregaveisSelecionados.has(e.id) ? '<svg width="10" height="10" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" fill="none"/></svg>' : ''}
+                </div>
+                <div class="flex-1">
+                    <span class="text-[8px] font-black px-2 py-0.5 rounded-full mr-1 ${grupoColors[e.grupo]||'bg-slate-100 text-slate-600'}">${e.grupo}</span>
+                    <p class="text-[11px] text-slate-300 font-medium leading-relaxed mt-1">${e.texto}</p>
+                </div>
+            </div>`).join('');
+        listEl.classList.remove('hidden');
+        if (btn) btn.textContent = '▲ Recolher';
+    } else {
+        listEl.classList.add('hidden');
+        if (btn) btn.textContent = '▼ Ver todos';
+    }
+};
+
+window.copsToggleEntregavel = function(id) {
+    if (copsEntregaveisSelecionados.has(id)) {
+        copsEntregaveisSelecionados.delete(id);
+    } else {
+        copsEntregaveisSelecionados.add(id);
+    }
+    // Atualizar visual do item
+    if (copsEntregaveisAberto) window.copsToggleEntregaveis(); // re-render fechando
+    window.copsToggleEntregaveis(); // re-render abrindo
+    // Atualizar resumo dos selecionados
+    copsRenderEntregaveisSelecionados();
+};
+
+function copsRenderEntregaveisSelecionados() {
+    const el = document.getElementById('cops-entregaveis-selected');
+    const emptyEl = document.getElementById('cops-entregaveis-empty');
+    if (!el) return;
+
+    const selecionados = copsEntregaveisFNW.filter(e => copsEntregaveisSelecionados.has(e.id));
+
+    if (selecionados.length === 0) {
+        el.innerHTML = '<p id="cops-entregaveis-empty" class="text-[9px] text-slate-500 italic">Nenhum selecionado — clique em "Ver todos".</p>';
+        return;
+    }
+
+    el.innerHTML = '<p class="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2">' + selecionados.length + ' entregável(is) selecionado(s):</p>' +
+        selecionados.map(e => `
+            <div class="flex items-start gap-2">
+                <span class="text-emerald-400 text-xs mt-0.5">✓</span>
+                <p class="text-[10px] text-slate-300 font-medium leading-relaxed">${e.texto}</p>
+            </div>`).join('');
+}
+
+// Limpar entregáveis ao resetar
+const _origCopsResetEnt = window.copsReset;
+window.copsReset = function() {
+    copsEntregaveisSelecionados = new Set();
+    copsEntregaveisAberto = false;
+    _origCopsResetEnt();
+};
+
+// Incluir entregáveis no prompt de geração de proposta
+const _origCopsGerarProposta = window.copsGerarProposta;
+window.copsGerarProposta = async function() {
+    // Injetar entregáveis no copsResultado antes de chamar
+    const selecionados = copsEntregaveisFNW.filter(e => copsEntregaveisSelecionados.has(e.id));
+    if (selecionados.length > 0 && copsResultado) {
+        copsResultado._entregaveis = selecionados.map(e => e.texto);
+    }
+    await _origCopsGerarProposta();
+};
+
+// =========================================================================
+// COPS Engine — Suite MetaIntel: ferramentas recomendadas por contexto
+// =========================================================================
+
+// Catálogo completo de ferramentas da Suite — extensível
+const suiteFerramentas = [
+    {
+        id: 'bp',         nome: 'Business Plan',       icone: '📊', grupo: 'Estratégia',
+        desc: 'Portfólio, receita máxima e projeção de escala',
+        triggers: ['receita', 'faturamento', 'produto', 'escala', 'portfólio', 'preço', 'monetiz', 'crescimento', 'plano de negócio', 'precificação']
+    },
+    {
+        id: 'esteira',    nome: 'Receita Previsível',   icone: '🗺️', grupo: 'Estratégia',
+        desc: 'Jornada LTi→MTi→HTi→DUN e próxima venda',
+        triggers: ['jornada', 'funil', 'ltv', 'ticket', 'upsell', 'esteira', 'conversão', 'próxima venda', 'produto', 'oferta']
+    },
+    {
+        id: 'crm',        nome: 'CRM',                  icone: '👥', grupo: 'Operacional',
+        desc: 'Leads, score, follow-up e pipeline',
+        triggers: ['lead', 'cliente', 'prospect', 'follow', 'pipeline', 'relacionamento', 'contato', 'venda', 'negociação', 'captação']
+    },
+    {
+        id: 'agenda',     nome: 'Agenda',               icone: '📅', grupo: 'Operacional',
+        desc: 'Ciclos de atendimento e agendamentos',
+        triggers: ['atendimento', 'reunião', 'agenda', 'sessão', 'encontro', 'ciclo', 'frequência', 'recorrência', 'onboarding']
+    },
+    {
+        id: 'puv-audit',  nome: 'PUV Audit',            icone: '📋', grupo: 'Tática',
+        desc: 'Diagnóstico da proposta única de valor',
+        triggers: ['posicionamento', 'diferencial', 'bio', 'marca', 'identidade', 'autoridade', 'proposta de valor', 'puv', 'perfil', 'instagram', 'linkedin', 'comunicação']
+    },
+    {
+        id: 'assistente', nome: 'Assistente GERiAH',    icone: '🧠', grupo: 'Operacional',
+        desc: 'Diagnóstico profundo e ações com IA',
+        triggers: ['estratégia', 'direcionamento', 'próximos passos', 'decisão', 'planejamento', 'orientação', 'como fazer', 'dúvida']
+    },
+    {
+        id: 'monitor',    nome: 'Foco',                 icone: '🎯', grupo: 'Operacional',
+        desc: 'Contextos, fases e pilares de projeto',
+        triggers: ['projeto', 'fase', 'contexto', 'gestão', 'acompanhamento', 'implementação', 'ativação', 'progresso']
+    }
+];
+
+let copsFerramentasSelecionadas = new Set();
+let copsTodasVisiveis = false;
+
+function copsDetectarFerramentas(resultado) {
+    if (!resultado) return [];
+    const texto = [
+        resultado.contexto, resultado.ocorrencia, resultado.problema,
+        resultado.solucao_efetiva,
+        (resultado.hipoteses||[]).map(h => h.titulo + ' ' + h.descricao).join(' ')
+    ].join(' ').toLowerCase();
+
+    return suiteFerramentas.filter(f =>
+        f.triggers.some(t => texto.includes(t))
+    );
+}
+
+function copsInsightEsteira() {
+    // Verificar se o contexto ativo tem esteira e sugerir conexões
+    const ctx = document.getElementById('selectComunidade')?.value;
+    if (!ctx || ctx === 'null') return null;
+    const estS = appState.esteiraData?.[ctx];
+    if (!estS || !estS.products || estS.products.length === 0) return null;
+
+    const insights = [];
+    const faixas = { 'esteira-lti': 'Low Ticket', 'esteira-mti': 'Mid Ticket', 'esteira-hti': 'High Ticket', 'esteira-dun': 'DUN' };
+
+    estS.products.forEach(p => {
+        const faixa = faixas[p.columnId] || p.columnId;
+        insights.push('<span class="text-[10px] font-bold text-indigo-700">• ' + p.title + '</span> <span class="text-[9px] text-indigo-400">(' + faixa + ' · R$ ' + p.price + ')</span>');
+    });
+
+    return insights;
+}
+
+function copsRenderFerramentas(resultado) {
+    const container = document.getElementById('cops-suite-tools');
+    const list = document.getElementById('cops-suite-tools-list');
+    if (!container || !list) return;
+
+    const recomendadas = copsDetectarFerramentas(resultado);
+    const recomIds = new Set(recomendadas.map(f => f.id));
+
+    // Pré-selecionar recomendadas
+    copsFerramentasSelecionadas = new Set(recomendadas.map(f => f.id));
+
+    // Renderizar apenas recomendadas inicialmente
+    const paraRenderizar = copsTodasVisiveis ? suiteFerramentas : recomendadas;
+
+    list.innerHTML = paraRenderizar.map(f => {
+        const isRec = recomIds.has(f.id);
+        const isSel = copsFerramentasSelecionadas.has(f.id);
+        return `
+        <div class="flex items-center gap-3 bg-white border ${isSel ? 'border-indigo-400 bg-indigo-50/50' : 'border-indigo-100'} rounded-xl px-4 py-3 transition-all">
+            <input type="checkbox" id="cops-tool-${f.id}" ${isSel ? 'checked' : ''}
+                onchange="window.copsToggleFerramentaSel('${f.id}', this.checked)"
+                class="w-4 h-4 accent-indigo-600 cursor-pointer flex-shrink-0">
+            <label for="cops-tool-${f.id}" class="flex-1 flex items-center gap-3 cursor-pointer">
+                <span class="text-xl">${f.icone}</span>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <p class="text-xs font-black text-slate-800">${f.nome}</p>
+                        ${isRec ? '<span class="text-[8px] font-black text-indigo-500 bg-indigo-100 px-1.5 py-0.5 rounded">✨ sugerida</span>' : ''}
+                        <span class="text-[8px] font-bold text-slate-300">${f.grupo}</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-medium">${f.desc}</p>
+                </div>
+            </label>
+            <button onclick="window.acoesAbrirFerramenta('${f.id === 'monitor' ? 'monitor' : f.id}')"
+                class="text-[9px] font-black text-indigo-500 hover:text-indigo-700 transition-all px-2">→</button>
+        </div>`;
+    }).join('');
+
+    // Insight da Esteira
+    const insights = copsInsightEsteira();
+    const insightEl = document.getElementById('cops-esteira-insight');
+    const insightContent = document.getElementById('cops-esteira-insight-content');
+    if (insights && insights.length > 0 && insightEl && insightContent) {
+        insightContent.innerHTML = '<p class="text-[10px] text-indigo-500 font-medium mb-2">O contexto ativo tem ' + insights.length + ' produto(s) na esteira que podem ser posicionados nesta proposta:</p>' +
+            insights.join('<br>') +
+            '<button onclick="window.acoesAbrirFerramenta(&quot;esteira&quot;)" class="mt-2 text-[9px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-600 hover:text-white transition-all block">Ver Esteira →</button>';
+        insightEl.classList.remove('hidden');
+        // Auto-selecionar esteira se tiver produtos
+        copsFerramentasSelecionadas.add('esteira');
+        const cbEsteira = document.getElementById('cops-tool-esteira');
+        if (cbEsteira) cbEsteira.checked = true;
+    }
+
+    container.classList.remove('hidden');
+}
+
+window.copsToggleFerramentaSel = function(id, checked) {
+    if (checked) copsFerramentasSelecionadas.add(id);
+    else copsFerramentasSelecionadas.delete(id);
+};
+
+window.copsToggleTodasFerramentas = function() {
+    copsTodasVisiveis = !copsTodasVisiveis;
+    const btn = document.getElementById('cops-tools-toggle');
+    if (btn) btn.textContent = copsTodasVisiveis ? '− Ver menos' : '+ Ver todas';
+    if (copsResultado) copsRenderFerramentas(copsResultado);
+};
+
+window.copsAbrirFerramentasSelecionadas = function() {
+    const selecionadas = [...copsFerramentasSelecionadas];
+    if (selecionadas.length === 0) {
+        window.showToast('Selecione pelo menos uma ferramenta.', 'warning');
+        return;
+    }
+    // Abrir a primeira direto, notificar sobre as demais
+    const primeira = selecionadas[0];
+    window.acoesAbrirFerramenta(primeira === 'monitor' ? 'monitor' : primeira);
+    if (selecionadas.length > 1) {
+        window.showToast(selecionadas.length + ' ferramentas selecionadas — use o menu para alternar entre elas.');
+    }
+};
+
+// Chamar após gerar o COPS
+const _origCopsGenEnd = window.copsGenerate;
+window.copsGenerate = async function() {
+    await _origCopsGenEnd();
+    if (copsResultado) {
+        copsTodasVisiveis = false;
+        copsRenderFerramentas(copsResultado);
     }
 };

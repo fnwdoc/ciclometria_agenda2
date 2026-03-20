@@ -649,6 +649,52 @@
                                         <div id="cops-hipoteses" class="space-y-2"></div>
                                     </div>
 
+                                    <!-- Ferramentas da Suite — MetaIntel -->
+                                    <div id="cops-suite-tools" class="hidden bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-lg">🧰</span>
+                                                <div>
+                                                    <p class="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Suite MetaIntel</p>
+                                                    <p class="text-[9px] text-indigo-400 font-medium">IA sugeriu · você decide quais fazem sentido</p>
+                                                </div>
+                                            </div>
+                                            <button onclick="window.copsToggleTodasFerramentas()" id="cops-tools-toggle"
+                                                class="text-[9px] font-black text-indigo-500 bg-white border border-indigo-200 px-3 py-1.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
+                                                + Ver todas
+                                            </button>
+                                        </div>
+
+                                        <!-- Lista de ferramentas com checkbox -->
+                                        <div id="cops-suite-tools-list" class="space-y-2"></div>
+
+                                        <!-- Insight da Esteira -->
+                                        <div id="cops-esteira-insight" class="hidden bg-white border border-indigo-200 rounded-xl p-3 space-y-2">
+                                            <p class="text-[9px] font-black text-indigo-600 uppercase tracking-widest">💡 Insight da Esteira Digital</p>
+                                            <div id="cops-esteira-insight-content" class="space-y-1"></div>
+                                        </div>
+
+                                        <!-- Botão abrir selecionadas -->
+                                        <button onclick="window.copsAbrirFerramentasSelecionadas()"
+                                            class="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                                            Abrir Ferramentas Selecionadas →
+                                        </button>
+                                    </div>
+
+                                    <!-- Biblioteca de Entregáveis FNW -->
+                                    <div class="bg-slate-900 rounded-2xl p-4 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <p class="text-[10px] font-black text-white uppercase tracking-widest">📦 Entregáveis FNW</p>
+                                            <button onclick="window.copsToggleEntregaveis()" id="cops-entregaveis-toggle"
+                                                class="text-[9px] font-black text-slate-400 hover:text-white transition-all">▼ Ver todos</button>
+                                        </div>
+                                        <p class="text-[9px] text-slate-400 font-medium">Selecione os entregáveis para incluir na proposta:</p>
+                                        <div id="cops-entregaveis-list" class="hidden space-y-2 mt-2"></div>
+                                        <div id="cops-entregaveis-selected" class="space-y-1 pt-1">
+                                            <p id="cops-entregaveis-empty" class="text-[9px] text-slate-500 italic">Nenhum selecionado — clique em "Ver todos".</p>
+                                        </div>
+                                    </div>
+
                                     <!-- Ações -->
                                     <div class="flex gap-3 flex-wrap">
                                         <button onclick="window.copsGerarProposta()"
