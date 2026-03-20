@@ -4304,3 +4304,95 @@ window.copsVoltarResult = function() {
     document.getElementById('cops-step-proposta').classList.add('hidden');
     document.getElementById('cops-step-result').classList.remove('hidden');
 };
+
+// =========================================================================
+// COPS Engine — Upload de arquivos
+// =========================================================================
+
+window.copsReadFile = async function(evt) {
+    const file = evt.target?.files[0];
+    if (!file) return;
+
+    const nameEl = document.getElementById('cops-file-name');
+    const clearBtn = document.getElementById('cops-file-clear');
+    if (nameEl) nameEl.textContent = '⏳ Lendo ' + file.name + '...';
+
+    try {
+        let texto = '';
+
+        if (file.name.endsWith('.pdf')) {
+            // PDF — usar FileReader como base64 e extrair texto via PDF.js CDN
+            texto = await copsReadPDF(file);
+        } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+            // DOCX — usar mammoth se disponível, senão aviso
+            texto = await copsReadDOCX(file);
+        } else {
+            // TXT, MD, CSV — leitura direta
+            texto = await file.text();
+        }
+
+        if (texto && texto.trim()) {
+            const input = document.getElementById('cops-raw-input');
+            if (input) {
+                input.value = (input.value ? input.value + '\n\n---\n\n' : '') + texto.trim();
+            }
+            if (nameEl) nameEl.textContent = '📎 ' + file.name;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            window.showToast('Arquivo carregado: ' + file.name);
+        } else {
+            if (nameEl) nameEl.textContent = '⚠️ Não foi possível extrair texto';
+            window.showToast('Não foi possível extrair texto do arquivo.', 'warning');
+        }
+    } catch(e) {
+        if (nameEl) nameEl.textContent = '❌ Erro ao ler arquivo';
+        window.showToast('Erro: ' + e.message, 'warning');
+    }
+
+    evt.target.value = null;
+};
+
+async function copsReadPDF(file) {
+    // Carregar PDF.js dinamicamente se necessário
+    if (!window.pdfjsLib) {
+        await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let texto = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        texto += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    return texto;
+}
+
+async function copsReadDOCX(file) {
+    // Carregar mammoth.js dinamicamente
+    if (!window.mammoth) {
+        await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+        });
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await window.mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+}
+
+window.copsClearFile = function() {
+    const nameEl = document.getElementById('cops-file-name');
+    const clearBtn = document.getElementById('cops-file-clear');
+    if (nameEl) nameEl.textContent = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+};

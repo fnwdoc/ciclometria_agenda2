@@ -536,6 +536,16 @@
                                     <textarea id="cops-raw-input" rows="6" placeholder="Cole aqui: escopo, relatório, e-mail, descrição de problema, transcrição de reunião, qualquer texto...&#10;&#10;Ou descreva livremente a situação que precisa ser estruturada."
                                         class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium text-slate-700 outline-none focus:border-violet-400 resize-none transition-all"></textarea>
 
+                                    <!-- Upload de arquivo -->
+                                    <div class="flex items-center gap-3">
+                                        <label class="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-xs font-black hover:bg-slate-50 hover:border-violet-300 transition-all cursor-pointer">
+                                            <i class="bi bi-paperclip text-violet-500"></i> Anexar arquivo
+                                            <input type="file" id="cops-file-input" accept=".txt,.pdf,.doc,.docx,.md,.csv" class="sr-only" onchange="window.copsReadFile(event)">
+                                        </label>
+                                        <span id="cops-file-name" class="text-[10px] text-slate-400 font-medium italic"></span>
+                                        <button id="cops-file-clear" onclick="window.copsClearFile()" class="hidden text-[10px] text-rose-400 font-black hover:text-rose-600">✕</button>
+                                    </div>
+
                                     <!-- Base de conhecimento FNW -->
                                     <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
                                         <div class="flex items-center justify-between">
