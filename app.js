@@ -4919,7 +4919,6 @@ window.copsGenerate = async function() {
 
 const simFmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
 
-// Blocos dinâmicos — substituídos pelo BP ou COPS quando disponíveis
 let simBlocos = [
     { id:'s1', nome:'Organização da base comercial',    desc:'Pipeline, scripts, CRM e coleta de informações de clientes',            valor:4000, checked:true  },
     { id:'s2', nome:'Geração de leads qualificados',    desc:'Definição do cliente ideal, tratamento de listas e prospecção ativa',    valor:4000, checked:false },
@@ -4936,22 +4935,20 @@ function simRenderBlocos() {
     if (!list) return;
     const n = simBlocos.filter(b => b.checked).length;
     const allChecked = n === simBlocos.length && simBlocos.length >= 2;
-    const valorUnit = allChecked ? 3500 : 4000;
 
     list.innerHTML = simBlocos.map((b, i) => `
         <div onclick="window.simToggleBloco(${i})"
-            class="checklist-item flex items-start gap-3 p-4 bg-white rounded-2xl border-2 ${b.checked ? 'border-indigo-500 bg-indigo-50/60 checked' : 'border-slate-100'} cursor-pointer hover:border-indigo-300 transition-all">
+            class="flex items-start gap-3 p-4 bg-white rounded-2xl border-2 ${b.checked ? 'border-indigo-500 bg-indigo-50/60' : 'border-slate-100'} cursor-pointer hover:border-indigo-300 transition-all">
             <div class="w-6 h-6 rounded-full border-2 ${b.checked ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'} flex items-center justify-center flex-shrink-0 mt-0.5 transition-all">
                 ${b.checked ? '<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2.5" fill="none"/></svg>' : ''}
             </div>
             <div class="flex-1 min-w-0">
                 <p class="text-xs font-black text-slate-800">${b.nome}</p>
                 <p class="text-[10px] text-slate-500 font-medium mt-0.5 leading-relaxed">${b.desc}</p>
-                <p class="text-[10px] font-black text-indigo-600 mt-1">${b.checked ? simFmt(valorUnit) : '—'}</p>
+                <p class="text-[10px] font-black text-indigo-600 mt-1">${b.checked ? simFmt(allChecked ? b.valor * 0.875 : b.valor) : '—'}</p>
             </div>
         </div>`).join('');
 
-    // Label preço
     const pl = document.getElementById('sim-preco-label');
     if (pl) pl.textContent = allChecked
         ? 'Pacote completo: R$ 3.500/bloco (desconto aplicado)'
@@ -4968,75 +4965,61 @@ function simAtualizar() {
     const checked = simBlocos.filter(b => b.checked);
     const n = checked.length;
     const allChecked = n === simBlocos.length && simBlocos.length >= 2;
-    const valorUnit = allChecked ? 3500 : 4000;
-    const valorBlocos = n > 0 ? (allChecked ? 3500 * n : 4000 * n) : 0;
+    const valorBlocos = allChecked ? checked.reduce((s,b) => s + b.valor * 0.875, 0) : checked.reduce((s,b) => s + b.valor, 0);
 
-    // Comissionamento
     const modelo = simGetRadio('sim_commission') || 'padrao';
-    const { percRec, percImp } = modelo === 'acelerado' ? { percRec:0.08, percImp:0.25 }
-                                : modelo === 'premium'   ? { percRec:0.12, percImp:0.30 }
-                                :                         { percRec:0.05, percImp:0.20 };
+    const percRec = modelo === 'premium' ? 0.12 : modelo === 'acelerado' ? 0.08 : 0.05;
+    const percImp = modelo === 'premium' ? 0.30 : modelo === 'acelerado' ? 0.25 : 0.20;
 
-    const implPorRede   = parseFloat(document.getElementById('sim-implantacao')?.value)  || 20000;
-    const cenario       = simGetRadio('sim_mensalidade') || 'cheia';
+    const implPorRede    = parseFloat(document.getElementById('sim-implantacao')?.value) || 20000;
+    const cenario        = simGetRadio('sim_mensalidade') || 'cheia';
     const mensPorUnidade = cenario === 'negociada' ? 5525 : 6500;
     const unidadesPorRede = parseInt(document.getElementById('sim-unidades')?.value) || 3;
-    const numRedes      = parseInt(simGetRadio('sim_redes') || '0');
-    const periodo       = parseInt(simGetRadio('sim_periodo') || '12');
+    const numRedes       = parseInt(simGetRadio('sim_redes') || '0');
+    const periodo        = parseInt(simGetRadio('sim_periodo') || '12');
 
-    const totalImpl  = numRedes * implPorRede;
-    const totalMens  = numRedes * unidadesPorRede * mensPorUnidade;
-    const fatTotal   = totalImpl + totalMens;
-    const comImp     = totalImpl * percImp;
-    const comRec     = totalMens * percRec;
-    const totalPer   = comImp + (comRec * periodo) + valorBlocos;
+    const totalImpl = numRedes * implPorRede;
+    const totalMens = numRedes * unidadesPorRede * mensPorUnidade;
+    const fatTotal  = totalImpl + totalMens;
+    const comImp    = totalImpl * percImp;
+    const comRec    = totalMens * percRec;
+    const totalPer  = comImp + (comRec * periodo) + valorBlocos;
 
     const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-
-    // Header sticky
-    s('sim-q-blocos',    n);
+    s('sim-q-blocos', n);
     s('sim-q-val-blocos', simFmt(valorBlocos));
-    s('sim-q-com-imp',   simFmt(comImp));
-    s('sim-q-com-rec',   simFmt(comRec));
-    s('sim-q-total',     simFmt(comImp + comRec + valorBlocos));
-
-    // Resultado detalhado
-    s('sim-r-implantacao',    simFmt(totalImpl));
-    s('sim-r-mensalidade',    simFmt(totalMens));
-    s('sim-r-fat-total',      simFmt(fatTotal));
-    s('sim-r-com-imp',        simFmt(comImp));
-    s('sim-r-com-rec',        simFmt(comRec));
-    s('sim-r-blocos',         simFmt(valorBlocos));
-    s('sim-r-total-periodo',  simFmt(totalPer));
-    s('sim-r-periodo-label',  periodo + ' meses');
+    s('sim-q-com-imp', simFmt(comImp));
+    s('sim-q-com-rec', simFmt(comRec));
+    s('sim-q-total', simFmt(comImp + comRec + valorBlocos));
+    s('sim-r-implantacao', simFmt(totalImpl));
+    s('sim-r-mensalidade', simFmt(totalMens));
+    s('sim-r-fat-total', simFmt(fatTotal));
+    s('sim-r-com-imp', simFmt(comImp));
+    s('sim-r-com-rec', simFmt(comRec));
+    s('sim-r-blocos', simFmt(valorBlocos));
+    s('sim-r-total-periodo', simFmt(totalPer));
+    s('sim-r-periodo-label', periodo + ' meses');
     s('sim-r-detalhe-blocos', n + (allChecked ? ' bloco(s) — R$ 3.500 cada (pacote)' : ' bloco(s) — R$ 4.000 cada'));
+    s('sim-rodape-redes', numRedes);
+    s('sim-rodape-unidades', unidadesPorRede);
+    s('sim-rodape-total-u', numRedes * unidadesPorRede);
+    s('sim-rodape-val-u', simFmt(mensPorUnidade));
+    s('sim-rodape-blocos', n);
 
-    // Mensagem blocos
     const msg = n === 0 ? 'Nenhum bloco contratado.'
         : allChecked ? 'Pacote completo! Desconto de R$ 3.500/bloco aplicado.'
         : n + ' bloco(s) contratado(s) por R$ 4.000 cada.';
     s('sim-blocos-count', n + ' de ' + simBlocos.length);
     s('sim-blocos-msg', msg);
-
-    // Resumo do rodapé
-    s('sim-rodape-redes',    numRedes);
-    s('sim-rodape-unidades', unidadesPorRede);
-    s('sim-rodape-total-u',  numRedes * unidadesPorRede);
-    s('sim-rodape-val-u',    simFmt(mensPorUnidade));
-    s('sim-rodape-blocos',   n);
 }
 
 window.simCalcular = function() { simAtualizar(); };
 
-// Inicializar ao abrir
 window.simInit = function() {
     const ctx = document.getElementById('selectComunidade')?.value;
     const ctxNome = (ctx && ctx !== 'null') ? ctx : null;
-
     const label = document.getElementById('sim-ctx-label');
     if (label) label.textContent = ctxNome ? '📍 ' + ctxNome : 'Sem contexto — selecione no Foco';
-
-    // Tentar carregar do Business Plan
     if (ctxNome) {
         const bpS = appState.bpData?.[ctxNome];
         if (bpS?.portfolio?.length > 0) {
@@ -5047,12 +5030,10 @@ window.simInit = function() {
             }));
         }
     }
-
     simRenderBlocos();
     simAtualizar();
 };
 
-// Carregar blocos do COPS ativo
 window.simCarregarDoCOPS = function() {
     if (!copsResultado?.hipoteses?.length) {
         window.showToast('Nenhum diagnóstico COPS ativo.', 'warning'); return;
@@ -5065,7 +5046,6 @@ window.simCarregarDoCOPS = function() {
     window.showToast('Blocos carregados do COPS! ✓');
 };
 
-// Gerar resumo em texto
 window.simGerarResumoTexto = function() {
     const checked = simBlocos.filter(b => b.checked);
     const modelo  = simGetRadio('sim_commission') || 'padrao';
@@ -5073,64 +5053,49 @@ window.simGerarResumoTexto = function() {
     const periodo = simGetRadio('sim_periodo') || '12';
     const ctx     = document.getElementById('selectComunidade')?.value;
     const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
-
     const tPer  = document.getElementById('sim-r-total-periodo')?.textContent || '';
     const fat   = document.getElementById('sim-r-fat-total')?.textContent || '';
     const cImp  = document.getElementById('sim-r-com-imp')?.textContent || '';
     const cRec  = document.getElementById('sim-r-com-rec')?.textContent || '';
     const vBloc = document.getElementById('sim-r-blocos')?.textContent || '';
-
     const blocosTxt = checked.length > 0
         ? checked.map((b,i) => (i+1) + '. ' + b.nome + ' — ' + b.desc + ' — ' + simFmt(b.valor)).join('\n')
         : 'Nenhum';
-
     const texto = [
         'SIMULAÇÃO DE PROPOSTA — GERiAH Suite',
-        'Cliente: ' + ctxNome,
-        '',
+        'Cliente: ' + ctxNome, '',
         'Modelo de Comissão: ' + nomes[modelo],
-        'Período: ' + periodo + ' meses',
-        '',
-        'BLOCOS SELECIONADOS:',
-        blocosTxt,
-        '',
+        'Período: ' + periodo + ' meses', '',
+        'BLOCOS SELECIONADOS:', blocosTxt, '',
         'Faturamento Mês 1: ' + fat,
         'Comissão Implantação: ' + cImp,
         'Comissão Recorrência: ' + cRec,
         'Blocos: ' + vBloc,
         'Total Assessoria no Período (' + periodo + ' meses): ' + tPer
     ].join('\n');
-
     const el = document.getElementById('sim-resumo');
     if (el) el.value = texto;
 };
 
-// Gerar resumo com IA
 window.simGerarResumoIA = async function() {
-    if (!appState.aiConfig?.key) {
-        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning'); return;
-    }
+    if (!appState.aiConfig?.key) { window.showToast('Configure a API Key.', 'warning'); return; }
     const checked = simBlocos.filter(b => b.checked);
     if (!checked.length) { window.showToast('Selecione pelo menos um bloco.', 'warning'); return; }
-
     window.showToast('Gerando resumo com IA...');
     try {
-        const ctx     = document.getElementById('selectComunidade')?.value;
+        const ctx = document.getElementById('selectComunidade')?.value;
         const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
-        const tPer    = document.getElementById('sim-r-total-periodo')?.textContent;
-        const modelo  = simGetRadio('sim_commission') || 'padrao';
-        const nomes   = { padrao:'Padrão', acelerado:'Acelerado', premium:'Premium' };
-
+        const tPer = document.getElementById('sim-r-total-periodo')?.textContent;
+        const modelo = simGetRadio('sim_commission') || 'padrao';
+        const nomes = { padrao:'Padrão', acelerado:'Acelerado', premium:'Premium' };
         const prompt = [
             'Gere um resumo executivo de proposta de assessoria para ' + ctxNome + '.',
-            'Blocos contratados: ' + checked.map(b => b.nome).join(', '),
+            'Blocos: ' + checked.map(b => b.nome).join(', '),
             'Modelo: ' + nomes[modelo],
-            'Investimento total no período: ' + tPer,
+            'Investimento total: ' + tPer,
             'Seja direto, empático e orientado a resultado. Máximo 3 parágrafos.'
         ].join('\n');
-
-        const resp = await window.callAI(prompt,
-            'Você é um consultor sênior FNW. Escreva resumos de proposta claros, profissionais e persuasivos.');
+        const resp = await window.callAI(prompt, 'Você é um consultor sênior FNW. Escreva resumos de proposta claros e persuasivos.');
         const el = document.getElementById('sim-resumo');
         if (el) el.value = resp.replace(/```/g,'').trim();
         window.showToast('Resumo gerado! ✓');
@@ -5144,777 +5109,8 @@ window.simCopiarResumo = function() {
 
 window.simExportarPDF = function() { window.print(); };
 
-
-// =========================================================================
-// Simulador — Gerador de HTML personalizado para o cliente
-// =========================================================================
-
-window.simGerarHTMLCliente = async function() {
-    if (!appState.aiConfig?.key) {
-        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning'); return;
-    }
-
-    const ctxCliente = document.getElementById('sim-ctx-cliente')?.value?.trim();
-    if (!ctxCliente || ctxCliente.length < 20) {
-        window.showToast('Descreva o contexto do cliente primeiro.', 'warning'); return;
-    }
-
-    const icon = document.getElementById('sim-gerar-html-icon');
-    const txt  = document.getElementById('sim-gerar-html-text');
-    if (icon) icon.textContent = '⏳';
-    if (txt)  txt.textContent  = 'Gerando...';
-
-    try {
-        // Coletar dados atuais do simulador
-        const ctx     = document.getElementById('selectComunidade')?.value;
-        const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
-        const blocosSel = simBlocos.filter(b => b.checked);
-        const todosB  = simBlocos;
-
-        // Pedir à IA para adaptar os blocos e textos ao contexto do cliente
-        const sysPrompt = [
-            'Você é um especialista em propostas comerciais da FNW Assessoria.',
-            'Gere uma estrutura JSON para um simulador de proposta self-service personalizado para o cliente.',
-            'Responda APENAS em JSON válido, sem explicações, sem markdown.'
-        ].join(' ');
-
-        const bpS = appState.bpData?.[ctx];
-        const portfolioStr = bpS?.portfolio?.length > 0
-            ? 'Portfólio FNW: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
-            : '';
-
-        const userPrompt = [
-            'CONTEXTO DO CLIENTE: ' + ctxCliente,
-            'ASSESSOR: ' + ctxNome,
-            portfolioStr,
-            'BLOCOS DISPONÍVEIS: ' + todosB.map(b => b.nome + ' — ' + b.desc + ' (R$' + b.valor + ')').join(' | '),
-            '',
-            'Gere JSON com esta estrutura exata:',
-            '{',
-            '  "titulo": "Título da proposta adaptado ao cliente",',
-            '  "subtitulo": "Subtítulo contextualizado",',
-            '  "frase_impacto": "Frase de impacto personalizada (máx 20 palavras)",',
-            '  "assessor": "' + ctxNome + '",',
-            '  "validade": "30 dias",',
-            '  "blocos": [',
-            '    {"nome": "...", "desc": "...", "valor": 4000, "destaque": false}',
-            '  ],',
-            '  "implantacao_por_rede": 20000,',
-            '  "mensalidade_cheia": 6500,',
-            '  "mensalidade_negociada": 5525,',
-            '  "desconto_pacote_completo": true,',
-            '  "valor_pacote": 3500,',
-            '  "modelos_comissao": [',
-            '    {"nome": "Padrão", "rec": 5, "imp": 20, "desc": "...contexto..."},',
-            '    {"nome": "Acelerado", "rec": 8, "imp": 25, "desc": "...contexto..."},',
-            '    {"nome": "Premium", "rec": 12, "imp": 30, "desc": "...contexto..."}',
-            '  ],',
-            '  "resumo_intro": "Texto de introdução personalizado para este cliente (2-3 frases)"',
-            '}'
-        ].join('\n');
-
-        const resposta = await window.callAI(userPrompt, sysPrompt);
-        const clean = resposta.replace(/```json|```/g, '').trim();
-        const dados = JSON.parse(clean);
-
-        // Gerar HTML standalone
-        const htmlFinal = simGerarHTMLStandalone(dados);
-
-        // Download
-        const nome = (ctxNome + '_proposta').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-        const blob = new Blob([htmlFinal], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'geriah_proposta_' + nome + '.html';
-        a.click();
-
-        window.showToast('HTML gerado e baixado! Envie ao cliente. ✓');
-
-    } catch(e) {
-        window.showToast('Erro: ' + e.message, 'warning');
-    } finally {
-        if (icon) icon.textContent = '✨';
-        if (txt)  txt.textContent  = 'Gerar Simulador Personalizado (HTML)';
-    }
-};
-
-function simGerarHTMLStandalone(d) {
-    const blocos = d.blocos || [];
-    const modelos = d.modelos_comissao || [
-        { nome:'Padrão', rec:5, imp:20, desc:'Sem prospecção ativa' },
-        { nome:'Acelerado', rec:8, imp:25, desc:'Com prospecção ativa' },
-        { nome:'Premium', rec:12, imp:30, desc:'Prospecção ativa + SDR' }
-    ];
-    const logoURL = 'https://geriah-suite.vercel.app/logo.png';
-
-    const blocosHTML = blocos.map((b, i) => `
-        <div class="bloco-item ${b.destaque ? 'destaque' : ''}" onclick="toggleBloco(this)" data-idx="${i}" data-valor="${b.valor}">
-            <div class="bloco-check" id="check-${i}"></div>
-            <div class="bloco-body">
-                <h3>${b.nome}</h3>
-                <p>${b.desc}</p>
-                <span class="bloco-valor">R$ ${Number(b.valor).toLocaleString('pt-BR')}</span>
-            </div>
-        </div>`).join('');
-
-    const modelosHTML = modelos.map((m, i) => `
-        <label class="modelo-item ${i===0?'selecionado':''}">
-            <input type="radio" name="modelo" value="${i}" ${i===0?'checked':''} onchange="calcular()">
-            <div>
-                <strong>${m.nome} — ${m.rec}% recorrência + ${m.imp}% implantação</strong>
-                <span>${m.desc}</span>
-            </div>
-        </label>`).join('');
-
-    return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${d.titulo}</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;background:#f3f4f6;color:#1e293b}
-  header{background:linear-gradient(135deg,#1e1b4b,#312e81);color:white;padding:2rem;text-align:center}
-  header img{height:48px;margin-bottom:1rem;filter:brightness(0) invert(1)}
-  header h1{font-size:1.8rem;font-weight:900;letter-spacing:-0.03em;margin-bottom:.5rem}
-  header p{opacity:.8;font-size:.9rem}
-  .sticky-bar{position:sticky;top:0;z-index:100;background:rgba(30,27,75,.92);backdrop-filter:blur(12px);color:white;padding:1rem 2rem;display:flex;gap:2rem;flex-wrap:wrap;justify-content:center}
-  .sticky-item{text-align:center}.sticky-item label{font-size:.65rem;opacity:.7;display:block;text-transform:uppercase}
-  .sticky-item span{font-size:1.4rem;font-weight:900}
-  .sticky-item span.destaque{color:#fde047}
-  main{max-width:900px;margin:0 auto;padding:2rem;display:flex;flex-direction:column;gap:2rem}
-  .card{background:white;border-radius:1.5rem;padding:2rem;box-shadow:0 4px 20px rgba(0,0,0,.08)}
-  .card h2{font-size:1.3rem;font-weight:900;margin-bottom:1rem;color:#1e1b4b}
-  .intro-box{background:#ede9fe;border-left:4px solid #7c3aed;padding:1.2rem 1.5rem;border-radius:.75rem;font-style:italic;color:#4c1d95;margin-bottom:1.5rem}
-  .bloco-item{display:flex;align-items:flex-start;gap:1rem;padding:1rem;border:2px solid #e2e8f0;border-radius:1rem;cursor:pointer;transition:all .2s;margin-bottom:.75rem;background:#f8fafc}
-  .bloco-item:hover{border-color:#818cf8;background:#eef2ff}
-  .bloco-item.ativo{border-color:#4f46e5;background:#eef2ff}
-  .bloco-item.destaque{border-color:#f59e0b;background:#fffbeb}
-  .bloco-check{width:24px;height:24px;border-radius:50%;border:2px solid #94a3b8;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;transition:all .2s}
-  .bloco-item.ativo .bloco-check{background:#4f46e5;border-color:#4f46e5;color:white;font-weight:900;font-size:.8rem}
-  .bloco-item.ativo .bloco-check::after{content:'✓'}
-  .bloco-body h3{font-weight:800;font-size:1rem;color:#1e293b}
-  .bloco-body p{font-size:.85rem;color:#64748b;margin:.3rem 0}
-  .bloco-valor{font-size:.8rem;font-weight:800;color:#4f46e5}
-  .bloco-info{background:#f1f5f9;border-radius:.75rem;padding:.75rem 1rem;font-size:.85rem;color:#475569;margin-top:.75rem}
-  .modelo-item{display:flex;align-items:flex-start;gap:.75rem;padding:1rem;border:2px solid #e2e8f0;border-radius:1rem;cursor:pointer;margin-bottom:.5rem;transition:all .2s}
-  .modelo-item:hover{border-color:#818cf8}
-  .modelo-item.selecionado{border-color:#4f46e5;background:#eef2ff}
-  .modelo-item input{margin-top:3px;flex-shrink:0;accent-color:#4f46e5}
-  .modelo-item strong{display:block;font-size:.9rem;color:#1e293b}
-  .modelo-item span{font-size:.8rem;color:#64748b}
-  .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-  @media(max-width:600px){.config-grid{grid-template-columns:1fr}}
-  .field label{font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:.4rem}
-  .field input,.field select{width:100%;padding:.75rem;border:2px solid #e2e8f0;border-radius:.75rem;font-size:.95rem;font-weight:600;outline:none;transition:all .2s}
-  .field input:focus,.field select:focus{border-color:#4f46e5}
-  .periodo-grid{display:flex;gap:.5rem;flex-wrap:wrap}
-  .periodo-btn{flex:1;min-width:80px;padding:.75rem;border:2px solid #e2e8f0;border-radius:.75rem;cursor:pointer;text-align:center;font-weight:700;font-size:.85rem;transition:all .2s;background:white}
-  .periodo-btn.ativo{border-color:#4f46e5;background:#eef2ff;color:#4f46e5}
-  .resultado{background:#0f172a;color:white;border-radius:1.5rem;padding:2rem}
-  .resultado h2{color:#fde047;font-weight:900;margin-bottom:1.5rem}
-  .result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
-  .result-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
-  @media(max-width:600px){.result-grid,.result-grid-4{grid-template-columns:1fr 1fr}}
-  .result-box{background:#1e293b;border-radius:1rem;padding:1rem;text-align:center}
-  .result-box label{font-size:.65rem;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:.3rem}
-  .result-box span{font-size:1rem;font-weight:900;display:block}
-  .result-box.destaque{background:#1e3a5f;border:1px solid #3b82f6}
-  .result-box.total-periodo{background:#312e81;border:1px solid #6366f1}
-  .result-box.total-periodo span{font-size:1.3rem;color:white}
-  .rodape-info{font-size:.75rem;color:#64748b;margin-top:1rem;padding-top:1rem;border-top:1px solid #1e293b}
-  .btn-confirmar{width:100%;padding:1.2rem;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;border-radius:1rem;font-size:1rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;transition:all .2s;margin-top:1rem}
-  .btn-confirmar:hover{opacity:.9;transform:translateY(-2px)}
-  .btn-pdf{width:100%;padding:1rem;background:#0f172a;color:white;border:none;border-radius:1rem;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:.5rem}
-  .btn-pdf:hover{background:#1e293b}
-  footer{text-align:center;padding:2rem;color:#94a3b8;font-size:.8rem}
-  @media print{.no-print{display:none!important}body{background:white}.sticky-bar{position:static}}
-</style>
-</head>
-<body>
-
-<header>
-  <img src="${logoURL}" alt="GERiAH">
-  <h1>${d.titulo}</h1>
-  <p>${d.subtitulo} · Validade: ${d.validade}</p>
-</header>
-
-<div class="sticky-bar no-print">
-  <div class="sticky-item"><label>Blocos</label><span id="s-blocos">0</span></div>
-  <div class="sticky-item"><label>Valor Blocos</label><span id="s-val-blocos">R$ 0</span></div>
-  <div class="sticky-item"><label>Comissão Imp.</label><span id="s-com-imp">R$ 0</span></div>
-  <div class="sticky-item"><label>Comissão Rec.</label><span id="s-com-rec">R$ 0</span></div>
-  <div class="sticky-item"><label>Total Mês 1</label><span class="destaque" id="s-total">R$ 0</span></div>
-</div>
-
-<main>
-
-  <div class="card">
-    <div class="intro-box">${d.resumo_intro}</div>
-    <h2>📦 Escolha os Blocos de Estruturação</h2>
-    <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Marque os blocos que deseja implementar. ${d.desconto_pacote_completo ? 'Se contratar todos, valor especial de R$ ' + Number(d.valor_pacote).toLocaleString('pt-BR') + '/bloco.' : ''}</p>
-    ${blocosHTML}
-    <div class="bloco-info" id="bloco-info">Nenhum bloco selecionado.</div>
-  </div>
-
-  <div class="card">
-    <h2>⚡ Modelo de Comissionamento</h2>
-    ${modelosHTML}
-  </div>
-
-  <div class="card">
-    <h2>💰 Configuração Financeira</h2>
-    <div class="config-grid" style="margin-bottom:1rem">
-      <div class="field"><label>Implantação por rede (R$)</label><input type="number" id="f-impl" value="${d.implantacao_por_rede}" oninput="calcular()"></div>
-      <div class="field"><label>Mensalidade por unidade (R$)</label>
-        <select id="f-mens" onchange="calcular()">
-          <option value="${d.mensalidade_cheia}">Cheio: R$ ${Number(d.mensalidade_cheia).toLocaleString('pt-BR')}</option>
-          <option value="${d.mensalidade_negociada}">Negociado: R$ ${Number(d.mensalidade_negociada).toLocaleString('pt-BR')}</option>
-        </select>
-      </div>
-      <div class="field"><label>Unidades por rede</label>
-        <select id="f-unid" onchange="calcular()">
-          ${[1,2,3,4,5,6,7,8,10].map(n => `<option value="${n}" ${n===3?'selected':''}>${n} unidade${n>1?'s':''}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field"><label>Redes fechadas por mês</label>
-        <select id="f-redes" onchange="calcular()">
-          ${[0,1,2,3,4].map(n => `<option value="${n}">${n} rede${n!==1?'s':''}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="field"><label>Período do contrato</label>
-      <div class="periodo-grid">
-        ${[3,6,9,12].map(p => `<div class="periodo-btn ${p===12?'ativo':''}" onclick="setPeriodo(${p},this)">${p} meses</div>`).join('')}
-      </div>
-    </div>
-  </div>
-
-  <div class="resultado">
-    <h2>📈 Projeção para o Período</h2>
-    <div class="result-grid">
-      <div class="result-box"><label>Total Implantação</label><span id="r-impl">R$ 0</span></div>
-      <div class="result-box"><label>Total Mensalidade</label><span id="r-mens">R$ 0</span></div>
-      <div class="result-box destaque"><label>Faturamento Mês 1</label><span id="r-fat" style="color:#fde047">R$ 0</span></div>
-    </div>
-    <div class="result-grid-4">
-      <div class="result-box"><label>Comissão Imp.</label><span id="r-com-imp">R$ 0</span></div>
-      <div class="result-box"><label>Comissão Rec./mês</label><span id="r-com-rec" style="color:#4ade80">R$ 0</span></div>
-      <div class="result-box"><label>Blocos</label><span id="r-blocos" style="color:#60a5fa">R$ 0</span></div>
-      <div class="result-box total-periodo"><label>Total no Período</label><span id="r-total-per">R$ 0</span><small id="r-per-label" style="color:#fde047;font-size:.7rem">12 meses</small></div>
-    </div>
-    <div class="rodape-info">
-      Redes: <span id="rod-redes">0</span> · Unidades/rede: <span id="rod-unid">3</span> · Total: <span id="rod-total-u">0</span> · Blocos: <span id="rod-blocos">0</span>
-    </div>
-  </div>
-
-  <div class="card no-print">
-    <h2>✅ Confirmar Escolhas</h2>
-    <p style="font-size:.85rem;color:#64748b;margin-bottom:1rem">Revise suas escolhas e confirme. Será gerado um PDF com o resumo da sua simulação.</p>
-    <textarea id="obs-cliente" rows="3" style="width:100%;padding:.75rem;border:2px solid #e2e8f0;border-radius:.75rem;font-size:.9rem;margin-bottom:1rem;outline:none" placeholder="Observações adicionais (opcional)..."></textarea>
-    <button class="btn-confirmar" onclick="confirmarEPDF()">✅ Confirmar Escolhas e Gerar PDF</button>
-    <button class="btn-pdf no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF direto</button>
-  </div>
-
-</main>
-
-<footer>© ${new Date().getFullYear()} GERiAH Suite · FNW Assessoria · Proposta gerada para ${d.assessor}</footer>
-
-<script>
-const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
-const blocos = ${JSON.stringify(blocos)};
-const modelos = ${JSON.stringify(modelos)};
-const descontoPacote = ${d.desconto_pacote_completo};
-const valorPacote = ${d.valor_pacote || 3500};
-let periodo = 12;
-let blsAtivos = new Array(blocos.length).fill(false);
-
-function toggleBloco(el) {
-  const idx = parseInt(el.dataset.idx);
-  blsAtivos[idx] = !blsAtivos[idx];
-  el.classList.toggle('ativo', blsAtivos[idx]);
-  calcular();
-}
-
-function setPeriodo(p, el) {
-  periodo = p;
-  document.querySelectorAll('.periodo-btn').forEach(b => b.classList.remove('ativo'));
-  el.classList.add('ativo');
-  calcular();
-}
-
-function getModelo() {
-  const v = parseInt(document.querySelector('input[name=modelo]:checked')?.value || '0');
-  return modelos[v] || modelos[0];
-}
-
-document.querySelectorAll('.modelo-item').forEach(el => {
-  el.addEventListener('click', () => {
-    document.querySelectorAll('.modelo-item').forEach(e => e.classList.remove('selecionado'));
-    el.classList.add('selecionado');
-  });
-});
-
-function calcular() {
-  const ativos = blocos.filter((b,i) => blsAtivos[i]);
-  const n = ativos.length;
-  const allC = n === blocos.length && descontoPacote && n >= 2;
-  const vUnit = allC ? valorPacote : 4000;
-  const vBlocos = n > 0 ? (allC ? valorPacote * n : ativos.reduce((s,b) => s + (b.valor||4000), 0)) : 0;
-
-  const m = getModelo();
-  const percRec = m.rec / 100;
-  const percImp = m.imp / 100;
-
-  const impl = parseFloat(document.getElementById('f-impl').value) || 0;
-  const mens = parseFloat(document.getElementById('f-mens').value) || 0;
-  const unid = parseInt(document.getElementById('f-unid').value) || 1;
-  const redes = parseInt(document.getElementById('f-redes').value) || 0;
-
-  const tImpl = redes * impl;
-  const tMens = redes * unid * mens;
-  const fat = tImpl + tMens;
-  const cImp = tImpl * percImp;
-  const cRec = tMens * percRec;
-  const tPer = cImp + (cRec * periodo) + vBlocos;
-
-  const s = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-  s('s-blocos', n); s('s-val-blocos', fmt(vBlocos)); s('s-com-imp', fmt(cImp));
-  s('s-com-rec', fmt(cRec)); s('s-total', fmt(cImp+cRec+vBlocos));
-  s('r-impl', fmt(tImpl)); s('r-mens', fmt(tMens)); s('r-fat', fmt(fat));
-  s('r-com-imp', fmt(cImp)); s('r-com-rec', fmt(cRec));
-  s('r-blocos', fmt(vBlocos)); s('r-total-per', fmt(tPer));
-  s('r-per-label', periodo + ' meses');
-  s('rod-redes', redes); s('rod-unid', unid); s('rod-total-u', redes*unid); s('rod-blocos', n);
-
-  const msg = n === 0 ? 'Nenhum bloco selecionado.'
-    : allC ? 'Pacote completo! R$ '+valorPacote+'/bloco.'
-    : n + ' bloco(s) — R$ 4.000 cada.';
-  s('bloco-info', msg);
-}
-
-function confirmarEPDF() {
-  const ativos = blocos.filter((b,i) => blsAtivos[i]);
-  const m = getModelo();
-  const obs = document.getElementById('obs-cliente').value;
-  const tPer = document.getElementById('r-total-per').textContent;
-  const fat  = document.getElementById('r-fat').textContent;
-
-  // Preencher área de confirmação
-  const conf = document.getElementById('area-confirmacao');
-  if (conf) {
-    conf.innerHTML = '<h3>Suas escolhas:</h3>' +
-      '<p><strong>Blocos:</strong> ' + (ativos.map(b=>b.nome).join(', ') || 'Nenhum') + '</p>' +
-      '<p><strong>Modelo:</strong> ' + m.nome + '</p>' +
-      '<p><strong>Faturamento mês 1:</strong> ' + fat + '</p>' +
-      '<p><strong>Total assessoria no período:</strong> ' + tPer + '</p>' +
-      (obs ? '<p><strong>Observações:</strong> ' + obs + '</p>' : '');
-    conf.style.display = 'block';
-  }
-  setTimeout(() => window.print(), 300);
-}
-
-calcular();
-<\/script>
-
-<div id="area-confirmacao" style="display:none;background:#f0fdf4;border:2px solid #22c55e;border-radius:1rem;padding:1.5rem;margin:2rem auto;max-width:900px;font-size:.9rem;line-height:1.6"></div>
-
-</body>
-</html>`;
-}
-
-// =========================================================================
-// Simulador — Gerar HTML Self-Service para Cliente
-// =========================================================================
-
-window.simGerarHTMLCliente = async function() {
-    if (!appState.aiConfig?.key) {
-        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
-        return;
-    }
-
-    const contexto = document.getElementById('sim-contexto-cliente')?.value?.trim();
-    const ctx = document.getElementById('selectComunidade')?.value;
-    const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
-
-    const icon = document.getElementById('sim-gerar-icon');
-    const txt  = document.getElementById('sim-gerar-text');
-    if (icon) icon.textContent = '⏳';
-    if (txt)  txt.textContent  = 'Gerando simulador...';
-
-    try {
-        // Pegar estado atual do simulador como base
-        const blocosAtuais = simBlocos.map((b,i) =>
-            `Bloco ${i+1}: ${b.nome} | ${b.desc} | R$ ${b.valor}`
-        ).join('\n');
-
-        const bpS = appState.bpData?.[ctx];
-        const bpInfo = bpS?.portfolio?.length
-            ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
-            : '';
-
-        const sysPrompt = `Você é um especialista em propostas comerciais da FNW Assessoria.
-Sua tarefa é adaptar um simulador de proposta em HTML para um cliente específico.
-Você receberá o contexto do cliente e os blocos atuais, e deve retornar um JSON com as adaptações.
-Responda APENAS em JSON válido:
-{
-  "titulo": "Título personalizado para o cliente",
-  "subtitulo": "Subtítulo contextualizado",
-  "nome_empresa": "Nome da empresa do cliente",
-  "frase_impacto": "Frase de impacto personalizada para o contexto (substitui a genérica)",
-  "blocos": [
-    {"nome": "Nome do bloco adaptado", "desc": "Descrição adaptada para o contexto", "valor": 4000}
-  ],
-  "implantacao_valor": 20000,
-  "mensalidade_cheia": 6500,
-  "mensalidade_negociada": 5525,
-  "intro_texto": "Parágrafo de introdução personalizado para o cliente",
-  "rodape": "Texto do rodapé personalizado"
-}`;
-
-        const userPrompt = [
-            'CONTEXTO DO CLIENTE: ' + (contexto || ctxNome),
-            bpInfo ? 'PORTFÓLIO FNW: ' + bpInfo : '',
-            'BLOCOS ATUAIS:\n' + blocosAtuais,
-            'Adapte o simulador para este contexto específico. Mantenha a estrutura mas personalize nomes, descrições, valores e linguagem.'
-        ].filter(Boolean).join('\n\n');
-
-        const resposta = await window.callAI(userPrompt, sysPrompt);
-        const clean = resposta.replace(/```json|```/g,'').trim();
-        const dados = JSON.parse(clean);
-
-        // Gerar HTML standalone
-        const htmlGerado = simMontarHTMLCliente(dados, contexto || ctxNome);
-
-        // Download
-        const nomeArq = 'proposta_' + (dados.nome_empresa || ctxNome).toLowerCase()
-            .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') + '.html';
-        const blob = new Blob([htmlGerado], { type: 'text/html' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = nomeArq;
-        a.click();
-
-        window.showToast('Simulador gerado! Envie ' + nomeArq + ' para o cliente. ✓');
-
-    } catch(e) {
-        window.showToast('Erro: ' + e.message, 'warning');
-    } finally {
-        if (icon) icon.textContent = '✨';
-        if (txt)  txt.textContent  = 'Gerar Simulador Personalizado (HTML)';
-    }
-};
-
-function simMontarHTMLCliente(d, contextoTexto) {
-    const blocos = d.blocos || simBlocos;
-    const implVal = d.implantacao_valor || 20000;
-    const mensCheia = d.mensalidade_cheia || 6500;
-    const mensNeg   = d.mensalidade_negociada || 5525;
-
-    const blocosHTML = blocos.map((b, i) => `
-        <div class="checklist-item p-4 bg-white rounded-lg border-2 border-gray-200 cursor-pointer flex items-start${i===0?' checked':''}" data-bloco="${i+1}" onclick="toggleBloco(this)">
-            <div class="flex-1">
-                <h3 class="font-bold text-lg text-gray-800">Bloco ${i+1} · ${b.nome}</h3>
-                <p class="text-sm text-gray-600">${b.desc}</p>
-            </div>
-            <div class="ml-3 mt-1">
-                <span class="check-indicator w-6 h-6 rounded-full border-2 border-indigo-400 flex items-center justify-center text-indigo-600 text-lg font-bold${i===0?' bg-indigo-500 text-white border-indigo-500':''}">
-                    ${i===0?'✓':''}
-                </span>
-            </div>
-        </div>`).join('');
-
-    const blocosTabela = blocos.map((b, i) => `
-        <tr>
-            <td class="p-3 font-medium">${i+1}. ${b.nome}</td>
-            <td class="p-3">${b.desc}</td>
-            <td class="p-3" id="valor-bloco${i+1}">R$ ${Number(b.valor).toLocaleString('pt-BR')},00</td>
-        </tr>`).join('');
-
-    const valorIndividual = blocos[0]?.valor || 4000;
-    const valorPacote = Math.round(valorIndividual * 0.875);
-
-    return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${d.titulo || 'Proposta de Assessoria'} · ${d.nome_empresa || ''}</title>
-<script src="https://cdn.tailwindcss.com"><\/script>
-<style>
-html { font-family: 'Inter', sans-serif; scroll-behavior: smooth; }
-body { background-color: #f3f4f6; }
-.section-card { background-color: #fff; border-radius: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 2rem; transition: transform 0.3s, box-shadow 0.3s; }
-.section-card:hover { transform: translateY(-3px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
-.checklist-item { transition: background-color 0.2s; cursor: pointer; }
-.checklist-item.checked { background-color: #dcfce7; border-color: #22c55e; }
-.editable-summary { border: 2px dashed #cbd5e1; background-color: #f8fafc; padding: 1.5rem; border-radius: 1rem; min-height: 100px; outline: none; resize: vertical; }
-.editable-summary:focus { border-color: #3b82f6; background-color: #fff; }
-@media print { .no-print { display: none; } body { background: white; } .section-card { box-shadow: none; border: 1px solid #e2e8f0; } }
-</style>
-</head>
-<body>
-
-<header class="bg-blue-800 text-white py-6 shadow-lg">
-<div class="max-w-5xl mx-auto px-6">
-<div class="flex items-center gap-4 mb-2">
-<img src="https://geriah-suite.vercel.app/logo.png" alt="GERiAH" class="h-10 object-contain brightness-0 invert opacity-90">
-</div>
-<h1 class="text-2xl font-extrabold tracking-tight">${d.titulo || 'Proposta de Assessoria'}</h1>
-<p class="opacity-80 mt-1">${d.subtitulo || 'Personalize sua proposta · Selecione o que faz sentido para você'}</p>
-</div>
-</header>
-
-<div class="sticky top-0 z-10 bg-blue-900/90 backdrop-blur-sm text-white shadow-lg py-4">
-<div class="max-w-5xl mx-auto px-6">
-<h2 class="text-sm font-semibold mb-2 opacity-90">📊 Resumo da sua seleção</h2>
-<div class="grid grid-cols-3 md:grid-cols-5 gap-3 text-center">
-<div><p class="text-xs opacity-70">Blocos</p><p id="quick-blocos" class="text-xl font-bold">0</p></div>
-<div><p class="text-xs opacity-70">Valor blocos</p><p id="quick-valor-blocos" class="text-xl font-bold">R$ 0</p></div>
-<div><p class="text-xs opacity-70">Comissão imp.</p><p id="quick-comissao-imp" class="text-xl font-bold">R$ 0</p></div>
-<div><p class="text-xs opacity-70">Comissão rec.</p><p id="quick-comissao-rec" class="text-xl font-bold">R$ 0</p></div>
-<div><p class="text-xs opacity-70">Total mês 1</p><p id="quick-total" class="text-xl font-bold text-yellow-300">R$ 0</p></div>
-</div>
-</div>
-</div>
-
-<main class="max-w-5xl mx-auto px-6 py-8 space-y-10">
-
-<div class="section-card">
-<label class="block text-sm font-bold text-gray-700 mb-2">Resumo da Proposta</label>
-<div id="proposal-summary" class="editable-summary" contenteditable="true">${d.intro_texto || 'Esta proposta contempla a estruturação da assessoria para ' + (d.nome_empresa||'sua empresa') + ' através dos blocos selecionados abaixo.'}</div>
-</div>
-
-<section class="section-card bg-indigo-50 border-t-4 border-indigo-600">
-<h2 class="text-2xl font-bold text-indigo-800 mb-4">Escolha os Blocos de Estruturação</h2>
-<p class="text-gray-700 mb-2">Marque os blocos que deseja que a assessoria implemente. Cada bloco leva ~3 semanas.</p>
-<p class="text-indigo-600 font-semibold mb-4">Valor: R$ ${valorIndividual.toLocaleString('pt-BR')}/bloco individual. Todos = R$ ${valorPacote.toLocaleString('pt-BR')}/bloco.</p>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="blocos-checklist">${blocosHTML}</div>
-<div class="mt-4 p-4 bg-white rounded-lg">
-<p class="font-medium text-gray-700">Blocos contratados: <span id="blocos-contratados" class="font-black text-indigo-700">0</span> de ${blocos.length}</p>
-<p class="text-sm text-gray-600 mt-1" id="diagnostico-mensagem">Nenhum bloco selecionado.</p>
-</div>
-<div class="mt-4 p-4 bg-indigo-100 rounded-lg italic text-indigo-800 font-medium">"${d.frase_impacto || 'Estruture sua operação comercial com método e tecnologia.'}"</div>
-</section>
-
-<section class="section-card bg-green-50 border-t-4 border-green-600">
-<h2 class="text-2xl font-bold text-green-800 mb-4">Resumo dos Blocos Selecionados</h2>
-<div class="overflow-x-auto">
-<table class="min-w-full bg-white rounded-xl overflow-hidden">
-<thead class="bg-green-100"><tr><th class="p-3 text-left">Bloco</th><th class="p-3 text-left">Entregas</th><th class="p-3 text-left">Valor</th></tr></thead>
-<tbody>${blocosTabela}</tbody>
-</table>
-</div>
-<div class="bg-green-100 p-4 rounded-lg mt-4">
-<p class="font-bold text-green-800">Total em estruturação: <span id="total-blocos-valor">R$ 0,00</span></p>
-</div>
-</section>
-
-<section class="section-card bg-yellow-50 border-t-4 border-yellow-500" id="calculadora">
-<h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Simule o Negócio</h2>
-
-<div class="mb-6 p-6 bg-white rounded-xl shadow-sm">
-<h3 class="text-lg font-bold text-gray-800 mb-3">1. Modelo de comissionamento</h3>
-<label class="flex items-start p-3 mb-2 bg-gray-50 rounded-lg cursor-pointer border-2 hover:border-gray-400">
-<input type="radio" name="commission_model" value="padrao" checked onchange="calculateCommission()" class="mt-1 mr-3">
-<span class="font-semibold">Padrão (5% recorrência + 20% implantação)<span class="block text-sm font-normal text-gray-500 mt-1">Sem prospecção ativa · Estruturação da máquina de vendas</span></span>
-</label>
-<label class="flex items-start p-3 mb-2 bg-blue-50 rounded-lg cursor-pointer border-2 hover:border-blue-400">
-<input type="radio" name="commission_model" value="acelerado" onchange="calculateCommission()" class="mt-1 mr-3">
-<span class="font-semibold text-blue-800">Acelerado (8% + 25%)<span class="block text-sm font-normal text-blue-600 mt-1">Com prospecção ativa + blocos</span></span>
-</label>
-<label class="flex items-start p-3 bg-purple-50 rounded-lg cursor-pointer border-2 hover:border-purple-400">
-<input type="radio" name="commission_model" value="premium" onchange="calculateCommission()" class="mt-1 mr-3">
-<span class="font-semibold text-purple-800">Premium (12% + 30%)<span class="block text-sm font-normal text-purple-600 mt-1">Prospecção ativa + blocos + agenda SDR</span></span>
-</label>
-</div>
-
-<div class="mb-6 p-6 bg-white rounded-xl shadow-sm">
-<h3 class="text-lg font-bold text-gray-800 mb-3">2. Implantação e mensalidade</h3>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div>
-<label class="block text-sm font-semibold text-gray-700 mb-2">Valor de implantação (por rede)</label>
-<input type="number" id="implantacao-valor" value="${implVal}" onchange="calculateCommission()"
-class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-yellow-400 outline-none font-bold">
-</div>
-<div>
-<label class="block text-sm font-semibold text-gray-700 mb-2">Mensalidade por unidade</label>
-<label class="flex items-center p-3 mb-2 bg-gray-50 rounded-lg cursor-pointer border-2 hover:border-gray-400">
-<input type="radio" name="mensalidade_cenario" value="cheia" checked onchange="calculateCommission()" class="mr-2">
-<span class="font-semibold">Cheio: R$ ${mensCheia.toLocaleString('pt-BR')}/unidade</span>
-</label>
-<label class="flex items-center p-3 bg-green-50 rounded-lg cursor-pointer border-2 hover:border-green-400">
-<input type="radio" name="mensalidade_cenario" value="negociada" onchange="calculateCommission()" class="mr-2">
-<span class="font-semibold text-green-700">Negociado: R$ ${mensNeg.toLocaleString('pt-BR')}/unidade</span>
-</label>
-</div>
-</div>
-</div>
-
-<div class="mb-6 p-6 bg-white rounded-xl shadow-sm">
-<h3 class="text-lg font-bold text-gray-800 mb-3">3. Unidades por rede</h3>
-<select id="unidades-por-rede" onchange="calculateCommission()" class="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-yellow-400 outline-none">
-<option value="1">1 unidade</option><option value="2">2 unidades</option>
-<option value="3" selected>3 unidades (mínimo)</option><option value="4">4 unidades</option>
-<option value="5">5 unidades</option><option value="6">6 unidades</option>
-<option value="8">8 unidades</option><option value="10">10 unidades</option>
-</select>
-</div>
-
-<div class="mb-6 p-6 bg-white rounded-xl shadow-sm">
-<h3 class="text-lg font-bold text-gray-800 mb-3">4. Redes por mês</h3>
-<div class="grid grid-cols-3 md:grid-cols-5 gap-2">
-${[0,1,2,3,4].map(n => `<label class="flex items-center justify-center p-3 bg-gray-50 rounded-lg cursor-pointer border-2 hover:border-gray-400 text-sm font-semibold">
-<input type="radio" name="contracts" value="${n}" ${n===0?'checked':''} onchange="calculateCommission()" class="mr-2">${n} ${n===4?'(teto)':'rede'+(n!==1&&n>0?'s':'')}
-</label>`).join('')}
-</div>
-</div>
-
-<div class="mb-6 p-6 bg-white rounded-xl shadow-sm">
-<h3 class="text-lg font-bold text-gray-800 mb-3">5. Período de contratação</h3>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-${[3,6,9,12].map(n => `<label class="flex items-center justify-center p-3 bg-gray-50 rounded-lg cursor-pointer border-2 hover:border-gray-400 text-sm font-semibold ${n===12?'bg-green-50 border-green-300 text-green-700':''}">
-<input type="radio" name="periodo" value="${n}" ${n===12?'checked':''} onchange="calculateCommission()" class="mr-2">${n} meses
-</label>`).join('')}
-</div>
-</div>
-
-<div class="bg-gray-900 text-white rounded-xl p-6">
-<h3 class="text-xl font-bold mb-4 text-yellow-400">Projeção para o Período</h3>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Total Implantação</p><p id="display-total-implantacao" class="text-xl font-mono">R$ 0,00</p></div>
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Total Mensalidade</p><p id="display-total-mensalidade" class="text-xl font-mono">R$ 0,00</p></div>
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Faturamento Mês 1</p><p id="display-faturamento-total" class="text-xl font-mono text-yellow-300">R$ 0,00</p></div>
-</div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Comissão Imp.</p><p id="display-implantacao" class="text-lg font-mono">R$ 0,00</p></div>
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Comissão Rec.</p><p id="display-recorrencia" class="text-lg font-mono text-green-400">R$ 0,00</p></div>
-<div class="bg-gray-800 p-4 rounded-lg"><p class="text-gray-400 text-sm">Blocos</p><p id="display-blocos" class="text-lg font-mono text-blue-400">R$ 0,00</p><p id="detalhe-blocos" class="text-xs text-gray-500 mt-1">0 blocos</p></div>
-<div class="bg-gray-800 p-4 rounded-lg border border-yellow-500"><p class="text-gray-400 text-sm">Total no Período</p><p id="display-total-periodo" class="text-2xl font-mono text-white">R$ 0,00</p><p id="display-periodo-label" class="text-xs text-yellow-400 mt-1">12 meses</p></div>
-</div>
-</div>
-</section>
-
-<div class="flex flex-col sm:flex-row gap-4 justify-center py-4 no-print">
-<button onclick="window.print()"
-class="inline-flex items-center justify-center px-8 py-4 text-base font-extrabold rounded-xl shadow-lg text-white bg-blue-600 hover:bg-blue-700 transition-all">
-🖨️ Exportar / Imprimir PDF
-</button>
-</div>
-
-</main>
-
-<footer class="bg-gray-800 text-white py-6 text-center mt-10">
-<img src="https://geriah-suite.vercel.app/logo.png" alt="GERiAH" class="h-8 mx-auto mb-2 opacity-40 brightness-0 invert">
-<p class="opacity-60 text-sm">${d.rodape || '© 2026 FNW Assessoria · GERiAH Suite · Proposta personalizada'}</p>
-</footer>
-
-<script>
-const VALOR_INDIVIDUAL = ${valorIndividual};
-const VALOR_PACOTE = ${valorPacote};
-const IMPLANTACAO_BASE = ${implVal};
-const MENS_CHEIA = ${mensCheia};
-const MENS_NEG = ${mensNeg};
-const NUM_BLOCOS = ${blocos.length};
-
-const fmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
-
-function toggleBloco(el) {
-    el.classList.toggle('checked');
-    const ind = el.querySelector('.check-indicator');
-    if (el.classList.contains('checked')) {
-        ind.innerHTML = '✓';
-        ind.classList.add('bg-indigo-500','text-white','border-indigo-500');
-    } else {
-        ind.innerHTML = '';
-        ind.classList.remove('bg-indigo-500','text-white','border-indigo-500');
-    }
-    updateBlocos();
-    calculateCommission();
-}
-
-function updateBlocos() {
-    const n = document.querySelectorAll('.checklist-item.checked').length;
-    const allChecked = n === NUM_BLOCOS;
-    const valorUnit = allChecked ? VALOR_PACOTE : VALOR_INDIVIDUAL;
-    const total = n * valorUnit;
-
-    document.getElementById('blocos-contratados').textContent = n;
-    document.getElementById('total-blocos-valor').textContent = fmt(total);
-
-    for (let i = 1; i <= NUM_BLOCOS; i++) {
-        const el = document.getElementById('valor-bloco' + i);
-        if (!el) continue;
-        const marcado = document.querySelector('.checklist-item[data-bloco="' + i + '"]')?.classList.contains('checked');
-        el.textContent = marcado ? fmt(valorUnit) : 'Não selecionado';
-    }
-
-    document.getElementById('diagnostico-mensagem').textContent =
-        n === 0 ? 'Nenhum bloco selecionado.' :
-        allChecked ? 'Pacote completo! Valor especial de R$ ' + VALOR_PACOTE.toLocaleString('pt-BR') + ' por bloco.' :
-        n + ' bloco(s) por R$ ' + VALOR_INDIVIDUAL.toLocaleString('pt-BR') + ' cada.';
-}
-
-function calculateCommission() {
-    const modelo = document.querySelector('input[name=commission_model]:checked')?.value || 'padrao';
-    const cenario = document.querySelector('input[name=mensalidade_cenario]:checked')?.value || 'cheia';
-    const implVal = parseFloat(document.getElementById('implantacao-valor')?.value) || IMPLANTACAO_BASE;
-    const mensVal = cenario === 'negociada' ? MENS_NEG : MENS_CHEIA;
-    const unidades = parseInt(document.getElementById('unidades-por-rede')?.value) || 3;
-    const redes = parseInt(document.querySelector('input[name=contracts]:checked')?.value || '0');
-    const periodo = parseInt(document.querySelector('input[name=periodo]:checked')?.value || '12');
-
-    const percRec = modelo === 'premium' ? 0.12 : modelo === 'acelerado' ? 0.08 : 0.05;
-    const percImp = modelo === 'premium' ? 0.30 : modelo === 'acelerado' ? 0.25 : 0.20;
-
-    const n = document.querySelectorAll('.checklist-item.checked').length;
-    const allChecked = n === NUM_BLOCOS;
-    const valorUnit = allChecked ? VALOR_PACOTE : VALOR_INDIVIDUAL;
-    const valorBlocos = n * valorUnit;
-
-    const totalImpl = redes * implVal;
-    const totalMens = redes * unidades * mensVal;
-    const fat = totalImpl + totalMens;
-    const cImp = totalImpl * percImp;
-    const cRec = totalMens * percRec;
-    const total = cImp + (cRec * periodo) + valorBlocos;
-
-    const s = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-    s('display-total-implantacao', fmt(totalImpl));
-    s('display-total-mensalidade', fmt(totalMens));
-    s('display-faturamento-total', fmt(fat));
-    s('display-implantacao', fmt(cImp));
-    s('display-recorrencia', fmt(cRec));
-    s('display-blocos', fmt(valorBlocos));
-    s('detalhe-blocos', n + ' bloco(s)');
-    s('display-total-periodo', fmt(total));
-    s('display-periodo-label', periodo + ' meses');
-
-    s('quick-blocos', n);
-    s('quick-valor-blocos', fmt(valorBlocos));
-    s('quick-comissao-imp', fmt(cImp));
-    s('quick-comissao-rec', fmt(cRec));
-    s('quick-total', fmt(cImp + cRec + valorBlocos));
-}
-
-// Inicializar
-document.querySelector('.checklist-item[data-bloco="1"]')?.classList.add('checked');
-updateBlocos();
-calculateCommission();
-<\/script>
-</body>
-</html>`;
-}
-
-// =========================================================================
-// Simulador — Gerador de HTML self-service para cliente
-// =========================================================================
-
 window.simPuxarCtxCOPS = function() {
-    if (!copsResultado) {
-        window.showToast('Nenhum COPS ativo.', 'warning'); return;
-    }
+    if (!copsResultado) { window.showToast('Nenhum COPS ativo.', 'warning'); return; }
     const txt = [
         'CONTEXTO: ' + (copsResultado.contexto || ''),
         'PROBLEMA: ' + (copsResultado.problema || ''),
@@ -5928,12 +5124,8 @@ window.simPuxarCtxCOPS = function() {
 
 window.simGerarHTMLCliente = async function() {
     const ctx = document.getElementById('sim-ctx-cliente')?.value?.trim();
-    if (!ctx || ctx.length < 20) {
-        window.showToast('Descreva o contexto do cliente primeiro.', 'warning'); return;
-    }
-    if (!appState.aiConfig?.key) {
-        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning'); return;
-    }
+    if (!ctx || ctx.length < 20) { window.showToast('Descreva o contexto do cliente primeiro.', 'warning'); return; }
+    if (!appState.aiConfig?.key) { window.showToast('Configure a API Key.', 'warning'); return; }
 
     const icon = document.getElementById('sim-gerar-icon');
     const txt  = document.getElementById('sim-gerar-text');
@@ -5941,68 +5133,61 @@ window.simGerarHTMLCliente = async function() {
     if (txt)  txt.textContent  = 'Gerando proposta personalizada...';
 
     try {
-        const whatsapp = document.getElementById('sim-whatsapp')?.value?.trim() || '';
+        const wpp      = document.getElementById('sim-whatsapp')?.value?.trim() || '';
         const ctxAtivo = document.getElementById('selectComunidade')?.value;
         const ctxNome  = (ctxAtivo && ctxAtivo !== 'null') ? ctxAtivo : 'Cliente';
-
-        // Pegar blocos e valores atuais do simulador
-        const blocosAtuais = simBlocos.map(b => b.nome + ' (R$ ' + b.valor + ')').join(', ');
-        const bpS = appState.bpData?.[ctxNome];
+        const bpS      = appState.bpData?.[ctxNome];
         const portfolioStr = bpS?.portfolio?.length
             ? 'Portfólio: ' + bpS.portfolio.map(p => p.name + ' R$' + p.price).join(', ')
             : '';
 
-        const sysPrompt = `Você é um estrategista sênior da FNW Assessoria. 
-Sua tarefa é gerar um objeto JSON com as informações para personalizar uma proposta self-service para o cliente.
-Baseie-se no contexto fornecido e adapte TUDO para a realidade específica deste cliente.
+        const sysPrompt = `Você é estrategista sênior da FNW Assessoria especializado em vendas para academias e redes de fitness.
+Gere um JSON para personalizar uma proposta self-service. Perspectiva: o CLIENTE (academia) vê seus CUSTOS e ROI — não as comissões do assessor.
 
-Responda APENAS em JSON válido com esta estrutura:
+Responda APENAS em JSON válido:
 {
-  "titulo": "Nome da empresa/cliente — Assessoria FNW",
-  "subtitulo": "Subtítulo contextualizado (ex: 'Baseado no diagnóstico de março')",
-  "resumo_inicial": "Texto de abertura personalizado para este cliente (2-3 frases empáticas e diretas)",
+  "titulo": "Nome da empresa — Proposta PLUG IA",
+  "subtitulo": "Subtítulo contextualizado",
+  "resumo_inicial": "Abertura empática e direta para este cliente (2-3 frases)",
+  "roi_argumento": "Argumento de ROI baseado no histórico: 60% dos novos contratos de academias vêm de nossa solução integrada",
   "blocos": [
-    {"nome": "Nome do bloco adaptado", "desc": "Descrição específica para este contexto", "valor": 4000, "recomendado": true},
-    {"nome": "...", "desc": "...", "valor": 4000, "recomendado": false}
+    {"nome": "Nome do módulo específico", "desc": "O que a academia ganha com este módulo", "custo_implantacao": 4000, "roi_estimado": "Descrição do retorno esperado", "recomendado": true}
   ],
   "implantacao_por_rede": 20000,
   "mensalidade_cheia": 6500,
   "mensalidade_negociada": 5525,
-  "modelo_recomendado": "padrao",
-  "frase_motivacional": "Frase de impacto específica para este cliente",
-  "nota_rodape": "Texto do rodapé personalizado"
+  "unidades_min": 3,
+  "unidades_max": 10,
+  "frase_impacto": "Frase de impacto específica para academias",
+  "nota_rodape": "Rodapé personalizado"
 }`;
 
         const userPrompt = [
-            'CONTEXTO DO CLIENTE:',
-            ctx,
-            '',
-            'CLIENTE/CONTEXTO ATIVO NO SISTEMA: ' + ctxNome,
+            'CONTEXTO DO CLIENTE:', ctx, '',
+            'CONTEXTO NO SISTEMA: ' + ctxNome,
             portfolioStr,
-            'BLOCOS DISPONÍVEIS NO MOMENTO: ' + blocosAtuais,
             '',
-            'Personalize completamente a proposta para este contexto específico.',
-            'Os blocos devem refletir exatamente o que faz sentido para este cliente.',
-            'Valores podem ser ajustados conforme o contexto (orçamento, porte, etc).',
-            'Mantenha no máximo 4-5 blocos.'
+            'IMPORTANTE:',
+            '- A academia tem entre 3 e 10 unidades',
+            '- Produto: PlugAI Gym — solução comercial de IA para academias',
+            '- ROI histórico: 60% dos novos contratos celebrados entre academias e alunos procedem da solução integrada',
+            '- A simulação usa "unidades por mês" (quantas unidades a academia pretende integrar por mês), NÃO "redes por mês"',
+            '- O cliente vê CUSTOS e ROI, não comissões do assessor',
+            '- Máximo 4 módulos relevantes para academias'
         ].join('\n');
 
         const resposta = await window.callAI(userPrompt, sysPrompt);
         const clean = resposta.replace(/```json|```/g,'').trim();
         const dados = JSON.parse(clean);
 
-        // Gerar o HTML standalone
-        const htmlFinal = simGerarHTMLStandalone(dados, whatsapp);
-
-        // Download do arquivo
-        const blob = new Blob([htmlFinal], { type: 'text/html;charset=utf-8' });
+        const htmlFinal = simGerarHTMLStandalone(dados, wpp);
+        const blob = new Blob([htmlFinal], { type:'text/html;charset=utf-8' });
         const a = document.createElement('a');
         const nomeArq = (dados.titulo || ctxNome).toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,30);
         a.href = URL.createObjectURL(blob);
         a.download = 'proposta_' + nomeArq + '_' + new Date().toISOString().slice(0,10) + '.html';
         a.click();
-
-        window.showToast('Proposta gerada e baixada! Envie o arquivo HTML para o cliente. ✓');
+        window.showToast('Proposta gerada! Envie o HTML para o cliente. ✓');
 
     } catch(e) {
         window.showToast('Erro: ' + e.message, 'warning');
@@ -6013,32 +5198,48 @@ Responda APENAS em JSON válido com esta estrutura:
     }
 };
 
-function simGerarHTMLStandalone(dados, whatsappAssessor) {
+function simGerarHTMLStandalone(dados, wpp) {
+    const fmt = "new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format";
     const blocos = dados.blocos || [];
-    const wpp = whatsappAssessor || '';
+    const unMin  = dados.unidades_min || 3;
+    const unMax  = dados.unidades_max || 10;
+    const impl   = dados.implantacao_por_rede || 20000;
+    const mensC  = dados.mensalidade_cheia || 6500;
+    const mensN  = dados.mensalidade_negociada || 5525;
 
-    const blocosHTML = blocos.map((b, i) => `
-        <div class="checklist-item p-5 bg-white rounded-2xl border-2 ${b.recomendado ? 'border-indigo-400 bg-indigo-50/50 checked' : 'border-gray-100'} cursor-pointer flex items-start gap-4 transition-all hover:border-indigo-300"
-            data-bloco="${i}" data-valor="${b.valor}" onclick="toggleBloco(this)">
+    // Opções de unidades por mês (1..unMax)
+    const opcoesUnidMes = Array.from({length:unMax}, (_,i) => i+1)
+        .map(n => `<label class="flex-1 flex items-center justify-center p-2 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-xs font-bold"><input type="radio" name="unid_mes" value="${n}" ${n===1?'checked':''} onchange="calcular()" class="mr-1 accent-indigo-600">${n}</label>`)
+        .join('');
+
+    // Opções de unidades por rede
+    const opcoesUnidRede = Array.from({length: unMax - unMin + 1}, (_,i) => i + unMin)
+        .map(n => `<option value="${n}" ${n===unMin?'selected':''}>${n} unidades</option>`)
+        .join('');
+
+    const blocosHTML = blocos.map((b,i) => `
+        <div class="checklist-item p-5 bg-white rounded-2xl border-2 ${b.recomendado?'border-indigo-400 bg-indigo-50/50 checked':'border-gray-100'} cursor-pointer flex items-start gap-4 transition-all hover:border-indigo-300"
+            data-bloco="${i}" onclick="toggleBloco(this)">
             <div class="flex-shrink-0 mt-1">
-                <span class="check-indicator w-7 h-7 rounded-full border-2 ${b.recomendado ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'} flex items-center justify-center font-black text-sm">
-                    ${b.recomendado ? '✓' : ''}
-                </span>
+                <span class="check-indicator w-7 h-7 rounded-full border-2 ${b.recomendado?'bg-indigo-600 border-indigo-600 text-white':'border-gray-300'} flex items-center justify-center font-black text-sm">${b.recomendado?'✓':''}</span>
             </div>
             <div class="flex-1">
                 <h3 class="font-black text-lg text-gray-800">${b.nome}</h3>
                 <p class="text-sm text-gray-500 mt-1 leading-relaxed">${b.desc}</p>
-                <p class="text-xs font-black text-indigo-600 mt-2">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(b.valor)}/bloco</p>
+                <div class="mt-2 flex items-center gap-3 flex-wrap">
+                    <span class="text-xs font-black text-indigo-600">Investimento: R$ ${(b.custo_implantacao||4000).toLocaleString('pt-BR')}</span>
+                    <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">📈 ${b.roi_estimado||''}</span>
+                </div>
             </div>
-            ${b.recomendado ? '<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg uppercase tracking-wider h-fit">✨ Recomendado</span>' : ''}
+            ${b.recomendado?'<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg uppercase h-fit">✨ Recomendado</span>':''}
         </div>`).join('');
 
     const wppBtn = wpp
-        ? `<button onclick="enviarWhatsApp()" class="w-full bg-green-500 hover:bg-green-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.122 1.523 5.858L0 24l6.335-1.505A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.659-.525-5.168-1.434l-.371-.22-3.762.894.944-3.668-.24-.386A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+        ? `<button onclick="enviarWhatsApp()" class="w-full bg-green-500 hover:bg-green-600 text-white py-5 rounded-2xl font-black text-base uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-3">
+            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.555 4.122 1.523 5.858L0 24l6.335-1.505A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.659-.525-5.168-1.434l-.371-.22-3.762.894.944-3.668-.24-.386A9.944 9.944 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
             Confirmar Escolhas via WhatsApp
            </button>`
-        : `<button onclick="copiarResumo()" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl">
+        : `<button onclick="copiarResumo()" class="w-full bg-slate-700 hover:bg-slate-800 text-white py-5 rounded-2xl font-black text-base uppercase tracking-widest transition-all shadow-xl">
             📋 Copiar Resumo das Escolhas
            </button>`;
 
@@ -6047,36 +5248,34 @@ function simGerarHTMLStandalone(dados, whatsappAssessor) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${dados.titulo || 'Proposta FNW'}</title>
+<title>${dados.titulo||'Proposta PlugAI'}</title>
 <script src="https://cdn.tailwindcss.com"><\/script>
 <style>
-  html { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; scroll-behavior: smooth; }
-  body { background: #f1f5f9; }
-  .checklist-item.checked { background-color: #eef2ff; border-color: #6366f1; }
-  .checklist-item.checked .check-indicator { background: #4f46e5; border-color: #4f46e5; color: white; }
-  @media print { .no-print { display:none!important; } body { background:white; } }
+  html{font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;scroll-behavior:smooth}
+  body{background:#f1f5f9}
+  .checklist-item.checked{background-color:#eef2ff;border-color:#6366f1}
+  .checklist-item.checked .check-indicator{background:#4f46e5;border-color:#4f46e5;color:white}
+  @media print{.no-print{display:none!important}body{background:white}}
 </style>
 </head>
 <body>
 
-<!-- Header -->
 <header class="bg-[#1e1b4b] text-white py-8 shadow-2xl">
   <div class="max-w-4xl mx-auto px-6">
     <img src="https://geriah-suite.vercel.app/logo.png" class="h-12 mb-4 object-contain" alt="GERiAH">
-    <h1 class="text-2xl font-black tracking-tight">${dados.titulo || 'Proposta de Assessoria'}</h1>
-    <p class="text-indigo-300 text-sm mt-1 font-medium">${dados.subtitulo || ''}</p>
+    <h1 class="text-2xl font-black tracking-tight">${dados.titulo||'Proposta de Parceria'}</h1>
+    <p class="text-indigo-300 text-sm mt-1 font-medium">${dados.subtitulo||''}</p>
   </div>
 </header>
 
-<!-- Resumo sticky -->
+<!-- Sticky: o que o cliente está escolhendo -->
 <div class="sticky top-0 z-10 bg-indigo-900/90 backdrop-blur-sm text-white shadow-lg py-4">
   <div class="max-w-4xl mx-auto px-6">
     <p class="text-[10px] text-indigo-300 font-black uppercase tracking-widest mb-2">📊 Sua Simulação</p>
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
-      <div><p class="text-[9px] opacity-60">Blocos</p><p id="q-blocos" class="text-xl font-black">0</p></div>
-      <div><p class="text-[9px] opacity-60">Valor Blocos</p><p id="q-val-blocos" class="text-lg font-black">R$ 0</p></div>
-      <div><p class="text-[9px] opacity-60">Comissão Imp.</p><p id="q-com-imp" class="text-lg font-black">R$ 0</p></div>
-      <div><p class="text-[9px] opacity-60">Comissão Rec.</p><p id="q-com-rec" class="text-lg font-black">R$ 0</p></div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+      <div><p class="text-[9px] opacity-60">Módulos</p><p id="q-blocos" class="text-xl font-black">0</p></div>
+      <div><p class="text-[9px] opacity-60">Investimento Módulos</p><p id="q-val-blocos" class="text-lg font-black">R$ 0</p></div>
+      <div><p class="text-[9px] opacity-60">Implantação</p><p id="q-impl" class="text-lg font-black">R$ 0</p></div>
       <div><p class="text-[9px] opacity-60">Total Mês 1</p><p id="q-total" class="text-xl font-black text-yellow-300">R$ 0</p></div>
     </div>
   </div>
@@ -6086,114 +5285,144 @@ function simGerarHTMLStandalone(dados, whatsappAssessor) {
 
   <!-- Abertura -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-    <p class="text-gray-700 text-lg leading-relaxed font-medium">${dados.resumo_inicial || ''}</p>
+    <p class="text-gray-700 text-lg leading-relaxed font-medium">${dados.resumo_inicial||''}</p>
   </div>
 
-  <!-- Blocos -->
+  <!-- ROI Banner -->
+  <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-8 text-white shadow-xl">
+    <div class="flex items-start gap-4">
+      <div class="text-5xl font-black opacity-90">60%</div>
+      <div>
+        <p class="text-xl font-black">dos novos contratos de academias vêm da nossa solução integrada</p>
+        <p class="text-emerald-100 mt-2 font-medium leading-relaxed">${dados.roi_argumento||'Histórico comprovado: academias que implementam nossa solução registram aumento significativo na taxa de conversão de novos alunos.'}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Módulos -->
   <div class="bg-indigo-50 border-t-4 border-indigo-600 rounded-3xl p-8 space-y-5">
-    <h2 class="text-2xl font-black text-indigo-800">Escolha os Módulos da sua Assessoria</h2>
-    <p class="text-sm text-indigo-600 font-medium">Selecione os módulos que deseja contratar. Cada um leva ~3 semanas.</p>
-    <p id="preco-label" class="text-sm font-black text-indigo-700">R$ ${(dados.blocos?.[0]?.valor||4000).toLocaleString('pt-BR')}/módulo individual · todos = desconto especial</p>
-    <div class="grid md:grid-cols-2 gap-4" id="blocos-list">
-      ${blocosHTML}
+    <h2 class="text-2xl font-black text-indigo-800">Monte seu Plano</h2>
+    <p class="text-sm text-indigo-600 font-medium">Selecione os módulos que fazem sentido para a sua academia. Cada módulo leva ~3 semanas.</p>
+    <p id="preco-label" class="text-sm font-black text-indigo-700">R$ ${(blocos[0]?.custo_implantacao||4000).toLocaleString('pt-BR')}/módulo · pacote completo = desconto especial</p>
+    <div class="grid md:grid-cols-2 gap-4" id="blocos-list">${blocosHTML}</div>
+    <div class="bg-white rounded-2xl p-4">
+      <p class="text-sm font-medium text-gray-600">
+        <span class="font-black text-indigo-700">Módulos: </span>
+        <span id="blocos-count">0</span> selecionado(s) ·
+        <span id="blocos-msg" class="italic text-gray-400">Nenhum ainda.</span>
+      </p>
+      <p class="text-xs text-indigo-500 mt-1">⏱️ Duração estimada: ~3 semanas por módulo.</p>
     </div>
-    <div class="bg-white rounded-2xl p-4 text-sm font-medium text-gray-600">
-      <span class="font-black text-indigo-700">Módulos selecionados: </span>
-      <span id="blocos-count">0</span> · <span id="blocos-msg" class="italic text-gray-400">Nenhum selecionado ainda.</span>
-    </div>
-    <p class="text-indigo-500 text-xs font-medium italic">"${dados.frase_motivacional || ''}"</p>
+    <p class="text-indigo-500 text-sm font-medium italic">"${dados.frase_impacto||''}"</p>
   </div>
 
-  <!-- Comissionamento -->
-  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4">
-    <h2 class="text-xl font-black text-gray-800">Modelo de Parceria</h2>
-    <label class="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl cursor-pointer border-2 hover:border-slate-400 transition-all">
-      <input type="radio" name="commission" value="padrao" ${dados.modelo_recomendado==='padrao'?'checked':''} onchange="calcular()" class="mt-1 accent-slate-600 flex-shrink-0">
-      <div>
-        <p class="font-black text-gray-800">Padrão — 5% recorrência + 20% implantação</p>
-        <p class="text-sm text-gray-500 mt-1">Sem prospecção ativa · Estruturamos a máquina de vendas</p>
-      </div>
-      ${dados.modelo_recomendado==='padrao'?'<span class="flex-shrink-0 text-[9px] font-black text-indigo-600 bg-indigo-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
-    </label>
-    <label class="flex items-start gap-4 p-4 bg-blue-50 rounded-2xl cursor-pointer border-2 hover:border-blue-400 transition-all">
-      <input type="radio" name="commission" value="acelerado" ${dados.modelo_recomendado==='acelerado'?'checked':''} onchange="calcular()" class="mt-1 accent-blue-600 flex-shrink-0">
-      <div>
-        <p class="font-black text-blue-800">Acelerado — 8% recorrência + 25% implantação</p>
-        <p class="text-sm text-blue-600 mt-1">Com prospecção ativa + módulos contratados</p>
-      </div>
-      ${dados.modelo_recomendado==='acelerado'?'<span class="flex-shrink-0 text-[9px] font-black text-blue-600 bg-blue-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
-    </label>
-    <label class="flex items-start gap-4 p-4 bg-violet-50 rounded-2xl cursor-pointer border-2 hover:border-violet-400 transition-all">
-      <input type="radio" name="commission" value="premium" ${dados.modelo_recomendado==='premium'?'checked':''} onchange="calcular()" class="mt-1 accent-violet-600 flex-shrink-0">
-      <div>
-        <p class="font-black text-violet-800">Premium — 12% recorrência + 30% implantação</p>
-        <p class="text-sm text-violet-600 mt-1">Prospecção ativa + módulos + agenda SDR acelerada</p>
-      </div>
-      ${dados.modelo_recomendado==='premium'?'<span class="flex-shrink-0 text-[9px] font-black text-violet-600 bg-violet-100 px-2 py-1 rounded-lg h-fit">✨ Recomendado</span>':''}
-    </label>
-  </div>
-
-  <!-- Configuração -->
+  <!-- Configuração financeira — perspectiva do cliente -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-6">
-    <h2 class="text-xl font-black text-gray-800">Configure sua Simulação</h2>
+    <h2 class="text-xl font-black text-gray-800">Configure sua Simulação Financeira</h2>
+
     <div class="grid md:grid-cols-2 gap-6">
       <div>
-        <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Valor por unidade</label>
-        <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-gray-400 mb-2 transition-all">
-          <input type="radio" name="mensalidade" value="${dados.mensalidade_cheia||6500}" checked onchange="calcular()" class="accent-gray-600">
-          <span class="font-bold text-sm">Cheio: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(dados.mensalidade_cheia||6500)}/unidade</span>
+        <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Mensalidade por unidade</label>
+        <label class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-gray-400 mb-2 transition-all">
+          <input type="radio" name="mensalidade" value="${mensC}" checked onchange="calcular()" class="accent-gray-600">
+          <div>
+            <p class="font-bold text-sm">Plano Cheio: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensC)}/unidade/mês</p>
+            <p class="text-xs text-gray-500">Acesso completo a todos os recursos</p>
+          </div>
         </label>
-        <label class="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl cursor-pointer border-2 hover:border-emerald-400 transition-all">
-          <input type="radio" name="mensalidade" value="${dados.mensalidade_negociada||5525}" onchange="calcular()" class="accent-emerald-600">
-          <span class="font-bold text-sm text-emerald-700">Negociado: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(dados.mensalidade_negociada||5525)}/unidade</span>
+        <label class="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl cursor-pointer border-2 hover:border-emerald-400 transition-all">
+          <input type="radio" name="mensalidade" value="${mensN}" onchange="calcular()" class="accent-emerald-600">
+          <div>
+            <p class="font-bold text-sm text-emerald-700">Plano Negociado: ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensN)}/unidade/mês</p>
+            <p class="text-xs text-emerald-600">Condição especial para adesão antecipada</p>
+          </div>
         </label>
       </div>
+
       <div class="space-y-4">
         <div>
-          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Unidades por rede</label>
+          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Total de unidades da rede</label>
           <select id="unidades" onchange="calcular()" class="w-full p-3 border border-gray-200 rounded-xl bg-white font-bold text-sm outline-none focus:border-indigo-400">
-            <option value="3" selected>3 unidades</option><option value="4">4</option><option value="5">5</option>
-            <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="10">10</option>
+            ${opcoesUnidRede}
           </select>
+          <p class="text-xs text-gray-400 mt-1">*Mínimo ${unMin} unidades por rede.</p>
         </div>
         <div>
-          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Redes por mês</label>
-          <div class="flex gap-2">
-            ${[0,1,2,3,4].map(n=>`<label class="flex-1 flex items-center justify-center p-2 bg-gray-50 rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-xs font-bold"><input type="radio" name="redes" value="${n}" ${n===0?'checked':''} onchange="calcular()" class="mr-1 accent-indigo-600">${n}${n===4?' (teto)':''}</label>`).join('')}
-          </div>
+          <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Unidades que pretende integrar por mês</label>
+          <div class="flex gap-1 flex-wrap">${opcoesUnidMes}</div>
+          <p class="text-xs text-gray-400 mt-1">Ritmo de integração mensal das unidades.</p>
         </div>
       </div>
     </div>
+
     <div>
-      <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Período do contrato</label>
+      <label class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 block">Período do plano</label>
       <div class="flex gap-2 flex-wrap">
-        ${[3,6,9,12].map(p=>`<label class="flex items-center gap-2 px-4 py-3 ${p===12?'bg-emerald-50 border-emerald-400':'bg-gray-50'} rounded-xl cursor-pointer border-2 hover:border-indigo-400 transition-all text-sm font-bold"><input type="radio" name="periodo" value="${p}" ${p===12?'checked':''} onchange="calcular()" class="accent-indigo-600">${p} meses</label>`).join('')}
+        ${[3,6,9,12].map(p=>`<label class="flex items-center gap-2 px-4 py-3 ${p===12?'bg-emerald-50 border-emerald-400':'bg-gray-50'} rounded-xl cursor-pointer border-2 hover:border-indigo-400 text-sm font-bold transition-all"><input type="radio" name="periodo" value="${p}" ${p===12?'checked':''} onchange="calcular()" class="accent-indigo-600">${p} meses</label>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- Viabilidade Financeira (perspectiva da academia) -->
+  <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4">
+    <h2 class="text-xl font-black text-gray-800">💰 Viabilidade Financeira</h2>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bg-purple-50 border border-purple-100 rounded-2xl p-5">
+        <p class="text-xs font-black text-purple-600 uppercase tracking-widest mb-1">Implantação (única)</p>
+        <p class="text-2xl font-black text-gray-800">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(impl)}</p>
+        <p class="text-xs text-gray-500 mt-1">Taxa única independente do nº de unidades</p>
+      </div>
+      <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+        <p class="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">Mensalidade por unidade</p>
+        <p class="text-2xl font-black text-gray-800" id="val-mens-unit">${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(mensC)}</p>
+        <p class="text-xs text-gray-500 mt-1">Por unidade integrada ativa</p>
       </div>
     </div>
   </div>
 
   <!-- Resultado -->
   <div class="bg-slate-900 text-white rounded-3xl p-8 space-y-5">
-    <h2 class="text-xl font-black text-yellow-400 uppercase tracking-widest">📈 Projeção</h2>
-    <div class="grid grid-cols-3 gap-4">
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Implantação</p><p id="r-impl" class="text-lg font-black">R$ 0</p></div>
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Mensalidade</p><p id="r-mens" class="text-lg font-black">R$ 0</p></div>
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Fat. Mês 1</p><p id="r-fat" class="text-lg font-black text-yellow-300">R$ 0</p></div>
-    </div>
+    <h2 class="text-xl font-black text-yellow-400 uppercase tracking-widest">📈 Projeção do Investimento</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Comissão Imp.</p><p id="r-com-imp" class="text-sm font-black">R$ 0</p></div>
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Comissão Rec.</p><p id="r-com-rec" class="text-sm font-black text-emerald-400">R$ 0</p></div>
-      <div class="bg-slate-800 p-4 rounded-2xl text-center"><p class="text-xs text-slate-400 mb-1">Módulos</p><p id="r-blocos" class="text-sm font-black text-blue-400">R$ 0</p></div>
-      <div class="bg-indigo-800 p-4 rounded-2xl text-center border border-indigo-600"><p class="text-xs text-indigo-300 mb-1">Total Período</p><p id="r-total" class="text-xl font-black">R$ 0</p><p id="r-periodo" class="text-[9px] text-yellow-400">12 meses</p></div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center">
+        <p class="text-xs text-slate-400 mb-1">Implantação</p>
+        <p id="r-impl" class="text-lg font-black">R$ 0</p>
+      </div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center">
+        <p class="text-xs text-slate-400 mb-1">Mensalidade/mês</p>
+        <p id="r-mens" class="text-lg font-black">R$ 0</p>
+      </div>
+      <div class="bg-slate-800 p-4 rounded-2xl text-center">
+        <p class="text-xs text-slate-400 mb-1">Módulos (única)</p>
+        <p id="r-blocos" class="text-lg font-black text-blue-400">R$ 0</p>
+      </div>
+      <div class="bg-indigo-800 p-4 rounded-2xl text-center border border-indigo-600">
+        <p class="text-xs text-indigo-300 mb-1">Total Mês 1</p>
+        <p id="r-total-mes1" class="text-xl font-black text-yellow-300">R$ 0</p>
+      </div>
+    </div>
+    <div class="bg-slate-800 rounded-2xl p-4">
+      <p class="text-xs text-slate-400 mb-2">Investimento total no período</p>
+      <p id="r-total-periodo" class="text-3xl font-black text-white">R$ 0</p>
+      <p id="r-periodo-label" class="text-xs text-yellow-400 mt-1">12 meses</p>
+    </div>
+    <div class="bg-emerald-900/50 border border-emerald-700 rounded-2xl p-4">
+      <p class="text-xs text-emerald-400 font-black uppercase tracking-widest mb-1">📊 Potencial de Retorno</p>
+      <p class="text-sm text-emerald-200 font-medium" id="r-roi-texto">Selecione os módulos e configure a simulação para ver o potencial de retorno.</p>
+    </div>
+    <div class="text-xs text-slate-500 border-t border-slate-700 pt-3">
+      Unidades total: <span id="r-unidades">0</span> ·
+      Integrando: <span id="r-unid-mes">1</span>/mês ·
+      Mensalidade/unidade: <span id="r-val-unid">R$ 0</span>
     </div>
   </div>
 
   <!-- CTA -->
   <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 space-y-4 no-print">
-    <h2 class="text-xl font-black text-gray-800">Confirmar Escolhas</h2>
-    <p class="text-sm text-gray-500 font-medium">Quando estiver satisfeito com a simulação, confirme suas escolhas:</p>
+    <h2 class="text-xl font-black text-gray-800">✅ Confirmar Escolhas</h2>
+    <p class="text-sm text-gray-500 font-medium">Quando estiver satisfeito com a simulação, confirme suas escolhas e entraremos em contato:</p>
     ${wppBtn}
-    <button onclick="window.print()" class="w-full bg-blue-100 text-blue-700 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-200 transition-all">
+    <button onclick="window.print()" class="w-full bg-blue-100 text-blue-700 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-200 transition-all">
       🖨️ Salvar como PDF
     </button>
   </div>
@@ -6201,90 +5430,92 @@ function simGerarHTMLStandalone(dados, whatsappAssessor) {
 </main>
 
 <footer class="bg-slate-800 text-white py-6 text-center mt-8">
-  <p class="text-xs opacity-50 font-medium">${dados.nota_rodape || '© 2026 FNW Assessoria · Todos os direitos reservados.'}</p>
-  <p class="text-[9px] opacity-30 mt-1">Gerado via GERiAH Suite</p>
+  <p class="text-xs opacity-50 font-medium">${dados.nota_rodape||'© 2026 PLUG Ideias e Soluções Inteligentes · Todos os direitos reservados.'}</p>
+  <p class="text-[9px] opacity-30 mt-1">Proposta gerada via GERiAH Suite</p>
 </footer>
 
 <script>
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const $ = id => document.getElementById(id);
 const radio = name => document.querySelector('input[name="'+name+'"]:checked')?.value;
-
 const blocosDados = ${JSON.stringify(blocos)};
-let blocosChecked = blocosDados.map(b => b.recomendado || false);
+const IMPL_UNICA = ${impl};
+let blocosChecked = blocosDados.map(b => b.recomendado||false);
 
 function toggleBloco(el) {
   const i = parseInt(el.dataset.bloco);
   blocosChecked[i] = !blocosChecked[i];
   el.classList.toggle('checked', blocosChecked[i]);
   const ind = el.querySelector('.check-indicator');
-  if (blocosChecked[i]) { ind.textContent = '✓'; ind.classList.add('bg-indigo-600','border-indigo-600','text-white'); }
-  else { ind.textContent = ''; ind.classList.remove('bg-indigo-600','border-indigo-600','text-white'); }
+  if (blocosChecked[i]) { ind.textContent='✓'; ind.classList.add('bg-indigo-600','border-indigo-600','text-white'); }
+  else { ind.textContent=''; ind.classList.remove('bg-indigo-600','border-indigo-600','text-white'); }
   calcular();
 }
 
 function calcular() {
   const n = blocosChecked.filter(Boolean).length;
   const allChecked = n === blocosDados.length && n >= 2;
-  const valorUnit = allChecked ? blocosDados[0].valor * 0.875 : blocosDados[0]?.valor || 4000;
-  const valorBlocos = blocosChecked.reduce((s,c,i) => s + (c ? blocosDados[i].valor : 0), 0) * (allChecked ? 0.875 : 1);
+  const valorBlocos = blocosChecked.reduce((s,c,i) => s+(c?(blocosDados[i].custo_implantacao||4000):0),0) * (allChecked?0.875:1);
 
-  const modelo = radio('commission') || 'padrao';
-  const percRec = modelo==='premium'?0.12:modelo==='acelerado'?0.08:0.05;
-  const percImp = modelo==='premium'?0.30:modelo==='acelerado'?0.25:0.20;
+  const mens    = parseFloat(radio('mensalidade')||'${mensC}');
+  const unidades = parseInt($('unidades')?.value||'${unMin}');
+  const unidMes  = parseInt(radio('unid_mes')||'1');
+  const periodo  = parseInt(radio('periodo')||'12');
 
-  const impl = parseFloat('${dados.implantacao_por_rede||20000}');
-  const mens = parseFloat(radio('mensalidade') || '${dados.mensalidade_cheia||6500}');
-  const unid = parseInt($('unidades')?.value || '3');
-  const redes = parseInt(radio('redes') || '0');
-  const per  = parseInt(radio('periodo') || '12');
+  const totalMens   = unidades * mens;
+  const totalMes1   = IMPL_UNICA + totalMens + valorBlocos;
+  const totalPeriodo = IMPL_UNICA + (totalMens * periodo) + valorBlocos;
 
-  const totalImpl = redes * impl;
-  const totalMens = redes * unid * mens;
-  const fat = totalImpl + totalMens;
-  const comImp = totalImpl * percImp;
-  const comRec = totalMens * percRec;
-  const total = comImp + (comRec * per) + valorBlocos;
+  // ROI estimado: 60% dos novos contratos = receita extra por aluno
+  const roiMensal = Math.round(totalMens * 0.6);
+  const roiTexto = n > 0
+    ? 'Com ' + n + ' módulo(s) ativo(s) e ' + unidades + ' unidade(s), estimamos geração de receita adicional de ' + fmt(roiMensal) + '/mês via novos alunos captados pela plataforma (base histórica: 60% de novos contratos).'
+    : 'Selecione os módulos para ver a projeção de retorno.';
 
   const s = (id,v) => { const el=$(id); if(el) el.textContent=v; };
-  s('q-blocos',n); s('q-val-blocos',fmt(valorBlocos));
-  s('q-com-imp',fmt(comImp)); s('q-com-rec',fmt(comRec));
-  s('q-total',fmt(comImp+comRec+valorBlocos));
-  s('r-impl',fmt(totalImpl)); s('r-mens',fmt(totalMens)); s('r-fat',fmt(fat));
-  s('r-com-imp',fmt(comImp)); s('r-com-rec',fmt(comRec));
-  s('r-blocos',fmt(valorBlocos)); s('r-total',fmt(total));
-  s('r-periodo',per+' meses');
+  s('q-blocos',n);
+  s('q-val-blocos',fmt(valorBlocos));
+  s('q-impl',fmt(IMPL_UNICA));
+  s('q-total',fmt(totalMes1));
+  s('r-impl',fmt(IMPL_UNICA));
+  s('r-mens',fmt(totalMens));
+  s('r-blocos',fmt(valorBlocos));
+  s('r-total-mes1',fmt(totalMes1));
+  s('r-total-periodo',fmt(totalPeriodo));
+  s('r-periodo-label',periodo+' meses');
+  s('r-roi-texto',roiTexto);
+  s('r-unidades',unidades);
+  s('r-unid-mes',unidMes);
+  s('r-val-unid',fmt(mens));
+  s('val-mens-unit',fmt(mens));
   s('blocos-count',n);
-  s('blocos-msg', n===0?'Nenhum módulo selecionado.':allChecked?'Pacote completo! Desconto aplicado.':n+' módulo(s) selecionado(s).');
+  s('blocos-msg',n===0?'Nenhum módulo selecionado.':allChecked?'Pacote completo! Desconto aplicado.':n+' módulo(s) selecionado(s).');
 }
 
 function gerarResumoTexto() {
   const n = blocosChecked.filter(Boolean).length;
-  const modelo = radio('commission')||'padrao';
-  const nomes = {padrao:'Padrão (5%+20%)',acelerado:'Acelerado (8%+25%)',premium:'Premium (12%+30%)'};
-  const total = $('r-total')?.textContent || '';
-  const periodo = radio('periodo') || '12';
+  const modelo = 'Plano selecionado';
+  const periodo = radio('periodo')||'12';
+  const total = $('r-total-periodo')?.textContent||'';
+  const mens = radio('mensalidade');
+  const unidades = $('unidades')?.value;
+  const unidMes = radio('unid_mes')||'1';
   const blocosSel = blocosDados.filter((_,i)=>blocosChecked[i]).map((b,i)=>(i+1)+'. '+b.nome).join('\\n');
   return [
-    '*PROPOSTA FNW — ESCOLHAS DO CLIENTE*',
-    '',
-    '*Módulos selecionados:*',
-    blocosSel || 'Nenhum',
-    '',
-    '*Modelo:* ' + nomes[modelo],
+    '*PROPOSTA PLUG IA — MINHAS ESCOLHAS*','',
+    '*Módulos selecionados:*', blocosSel||'Nenhum','',
+    '*Total de unidades:* ' + unidades,
+    '*Unidades por mês:* ' + unidMes,
+    '*Mensalidade/unidade:* ' + fmt(parseFloat(mens||'${mensC}')),
     '*Período:* ' + periodo + ' meses',
-    '*Total projetado:* ' + total,
-    '',
-    '_(Gerado via GERiAH Suite · Proposta Self-Service)_'
+    '*Total do investimento:* ' + total,'',
+    '_(Enviado via Proposta Self-Service · GERiAH Suite)_'
   ].join('\\n');
 }
 
 function enviarWhatsApp() {
-  const resumo = gerarResumoTexto();
-  const wpp = '${wpp}';
-  if (!wpp) { copiarResumo(); return; }
-  const url = 'https://wa.me/' + wpp + '?text=' + encodeURIComponent(resumo);
-  window.open(url, '_blank');
+  const url = 'https://wa.me/${wpp}?text=' + encodeURIComponent(gerarResumoTexto());
+  window.open(url,'_blank');
 }
 
 function copiarResumo() {
