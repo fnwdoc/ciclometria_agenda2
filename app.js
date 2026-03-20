@@ -3767,19 +3767,17 @@ window.abrirPUVZap = function() {
     const left = screen.width - w - 20;
     const top = 50;
 
-    // Abrir popup já com o link do WhatsApp — navega dentro do popup
+    // Abre WhatsApp Web direto no popup — usuário já logado vai ver o grupo
     const popup = window.open(
-        'https://chat.whatsapp.com/HYvnmCO2mdT5bcwrXTXo0r',
+        'https://web.whatsapp.com/accept?code=HYvnmCO2mdT5bcwrXTXo0r',
         'PUVZap',
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
-        ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no'
+        ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no'
     );
 
     if (!popup) {
-        // Fallback se popup bloqueado
-        window.open('https://chat.whatsapp.com/HYvnmCO2mdT5bcwrXTXo0r', '_blank');
-        return;
+        window.open('https://web.whatsapp.com/accept?code=HYvnmCO2mdT5bcwrXTXo0r', '_blank');
+    } else {
+        popup.focus();
     }
-
-    popup.focus();
 };
