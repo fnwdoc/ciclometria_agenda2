@@ -979,11 +979,47 @@
                                     </div>
                                 </div>
 
+                                <!-- Gerar HTML para cliente -->
+                                <div class="bg-gradient-to-r from-indigo-900 to-violet-900 rounded-2xl p-5 space-y-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-2xl">🚀</span>
+                                        <div>
+                                            <p class="text-sm font-black text-white">Gerar Proposta para o Cliente</p>
+                                            <p class="text-[10px] text-indigo-300 font-medium">IA transforma o contexto em um simulador personalizado · cliente abre, decide e confirma em PDF</p>
+                                        </div>
+                                    </div>
+                                    <textarea id="sim-ctx-cliente" rows="3"
+                                        class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-indigo-300 resize-none transition-all"
+                                        placeholder="Descreva o contexto do cliente para a IA adaptar a proposta... Ex: 'Academia de natação com 2 unidades querendo expandir para 5. Foco em captação de alunos adultos 40+. Já tem CRM mas não usa.'"></textarea>
+                                    <button onclick="window.simGerarHTMLCliente()"
+                                        class="w-full bg-white text-indigo-900 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
+                                        <span id="sim-gerar-html-icon">✨</span>
+                                        <span id="sim-gerar-html-text">Gerar Simulador Personalizado (HTML)</span>
+                                    </button>
+                                </div>
+
                                 <!-- Export -->
-                                <div class="flex justify-center pb-4">
+                                <div class="space-y-3 pb-4">
+                                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-lg">🚀</span>
+                                            <div>
+                                                <p class="text-xs font-black text-emerald-800">Gerar Proposta Self-Service para o Cliente</p>
+                                                <p class="text-[10px] text-emerald-600 font-medium">IA adapta o simulador para o contexto · Cliente interage e exporta PDF</p>
+                                            </div>
+                                        </div>
+                                        <textarea id="sim-contexto-cliente" rows="3"
+                                            class="w-full bg-white border border-emerald-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400 resize-none transition-all"
+                                            placeholder="Descreva o contexto do cliente para personalizar o simulador...&#10;Ex: 'Academia de ginástica em SP, 3 unidades, quer estruturar o comercial e prospectar redes parceiras'"></textarea>
+                                        <button onclick="window.simGerarHTMLCliente()"
+                                            class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md flex items-center justify-center gap-2">
+                                            <span id="sim-gerar-icon">✨</span>
+                                            <span id="sim-gerar-text">Gerar Simulador Personalizado (HTML)</span>
+                                        </button>
+                                    </div>
                                     <button onclick="window.simExportarPDF()"
-                                        class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg">
-                                        🖨️ Exportar PDF (Imprimir)
+                                        class="w-full bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg">
+                                        🖨️ Exportar PDF desta Simulação
                                     </button>
                                 </div>
 
