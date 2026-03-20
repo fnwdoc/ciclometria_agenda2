@@ -5020,6 +5020,15 @@ window.simInit = function() {
     const ctxNome = (ctx && ctx !== 'null') ? ctx : null;
     const label = document.getElementById('sim-ctx-label');
     if (label) label.textContent = ctxNome ? '📍 ' + ctxNome : 'Sem contexto — selecione no Foco';
+    // Restaurar WhatsApp salvo (não misturar com nome do usuário)
+    const wppEl = document.getElementById('sim-whatsapp');
+    if (wppEl) {
+        wppEl.value = appState.simWhatsapp || '';
+        wppEl.addEventListener('input', () => {
+            appState.simWhatsapp = wppEl.value.replace(/\D/g,'');
+            saveState();
+        }, { once: false });
+    }
     if (ctxNome) {
         const bpS = appState.bpData?.[ctxNome];
         if (bpS?.portfolio?.length > 0) {
@@ -5132,8 +5141,12 @@ window.simGerarHTMLCliente = async function() {
     if (icon) icon.textContent = '⏳';
     if (txt)  txt.textContent  = 'Gerando proposta personalizada...';
 
+    // Retry com backoff em caso de 429
+    let tentativa = 0;
+    const maxTentativas = 3;
+
     try {
-        const wpp      = document.getElementById('sim-whatsapp')?.value?.trim() || '';
+        const wpp      = document.getElementById('sim-whatsapp')?.value?.replace(/\D/g,'').trim() || '';
         const ctxAtivo = document.getElementById('selectComunidade')?.value;
         const ctxNome  = (ctxAtivo && ctxAtivo !== 'null') ? ctxAtivo : 'Cliente';
         const bpS      = appState.bpData?.[ctxNome];
@@ -5176,7 +5189,19 @@ Responda APENAS em JSON válido:
             '- Máximo 4 módulos relevantes para academias'
         ].join('\n');
 
-        const resposta = await window.callAI(userPrompt, sysPrompt);
+        let resposta = null;
+        while (tentativa < maxTentativas) {
+            try {
+                resposta = await window.callAI(userPrompt, sysPrompt);
+                break;
+            } catch(e) {
+                if (e.message?.includes('429') && tentativa < maxTentativas - 1) {
+                    tentativa++;
+                    if (txt) txt.textContent = 'Rate limit — aguardando ' + (tentativa * 10) + 's...';
+                    await new Promise(r => setTimeout(r, tentativa * 10000));
+                } else throw e;
+            }
+        }
         const clean = resposta.replace(/```json|```/g,'').trim();
         const dados = JSON.parse(clean);
 
