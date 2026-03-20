@@ -2265,7 +2265,7 @@ window.switchAcaoTab = function(tab) {
 
 window.acoesAbrirFerramenta = function(tool) {
     // Esconder todos os painéis e welcome
-    ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente'].forEach(id => {
+    ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
     });
@@ -2286,6 +2286,11 @@ window.acoesAbrirFerramenta = function(tool) {
         const el = document.getElementById('acoes-painel-esteira');
         if (el) { el.classList.remove('hidden'); el.style.display = ''; }
         esteiraRender();
+    } else if (tool === 'cops') {
+        const el = document.getElementById('acoes-painel-cops');
+        if (el) { el.classList.remove('hidden'); el.style.display = ''; }
+        const menuItem2 = document.getElementById('acoes-menu-cops');
+        if (menuItem2) menuItem2.classList.add('active');
     } else if (tool === 'assistente') {
         const el = document.getElementById('acoes-painel-assistente');
         if (el) { el.classList.remove('hidden'); el.style.display = 'flex'; }
@@ -4064,7 +4069,7 @@ const _origAcoesAbrir = window.acoesAbrirFerramenta;
 window.acoesAbrirFerramenta = function(tool) {
     _origAcoesAbrir(tool);
     if (tool === 'puv-audit') {
-        ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente'].forEach(id => {
+        ['acoes-welcome','acoes-painel-bp','acoes-painel-esteira','acoes-painel-assistente','acoes-painel-cops','acoes-painel-puv-audit'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.classList.add('hidden'); el.style.display = 'none'; }
         });
@@ -4078,4 +4083,224 @@ window.acoesAbrirFerramenta = function(tool) {
             const ctx = document.getElementById('selectComunidade')?.value;
         }
     }
+};
+
+// =========================================================================
+// OPERACIONAL — COPS Engine
+// =========================================================================
+
+let copsHipotesesSelecionadas = [];
+let copsResultado = null;
+
+window.copsToggleKB = function() {
+    const area = document.getElementById('cops-kb-area');
+    const btn = document.getElementById('cops-kb-toggle');
+    const hidden = area.classList.toggle('hidden');
+    if (btn) btn.textContent = hidden ? '▼ Expandir' : '▲ Recolher';
+};
+
+function copsBuildContext() {
+    // Construir contexto rico do Suite para alimentar a IA
+    const ctx = document.getElementById('selectComunidade')?.value;
+    const ctxNome = (ctx && ctx !== 'null') ? ctx : null;
+
+    let item = null, faseKey = null;
+    const faseLabels = { prospec:'Prospecção', ativacao:'Ativação', implem:'Implementação', gestao:'Gestão' };
+    if (ctxNome) {
+        for (const k in appState.listas) {
+            const f = appState.listas[k].find(x => x && x.nome === ctxNome);
+            if (f) { item = f; faseKey = k; break; }
+        }
+    }
+
+    const bpS = appState.bpData && ctxNome ? appState.bpData[ctxNome] : null;
+    const estS = appState.esteiraData && ctxNome ? appState.esteiraData[ctxNome] : null;
+    const kbExtra = document.getElementById('cops-kb-text')?.value?.trim() || '';
+
+    let ctx_str = '=== DADOS DO SISTEMA GERiAH ===\n';
+    if (item) {
+        ctx_str += 'Contexto ativo: ' + item.nome + ' | Tipo: ' + item.tipo + ' | Fase: ' + (faseLabels[faseKey]||'') + ' | Status: ' + item.status + '\n';
+    }
+    if (bpS && bpS.portfolio && bpS.portfolio.length > 0) {
+        ctx_str += '\nPortfólio FNW:\n' + bpS.portfolio.map(p => '- ' + p.name + ': R$ ' + p.price + ' x ' + p.capacity + ' ' + p.unit).join('\n');
+    }
+    if (estS && estS.products && estS.products.length > 0) {
+        ctx_str += '\nEsteira de produtos:\n' + estS.products.map(p => '- ' + p.title + ': R$ ' + p.price).join('\n');
+    }
+    if (kbExtra) {
+        ctx_str += '\n\n=== BASE DE CONHECIMENTO FNW (fornecida pelo usuário) ===\n' + kbExtra;
+    }
+    ctx_str += '\n\n=== METODOLOGIA FNW/GERiAH ===\nSistema de assessoria com fases: Prospecção → Ativação → Implementação → Gestão.\nTipos de atendimento: Assessoria, Comunidade, Mentoria, Consultoria, Parceria, Pipeline, Projeto.\nFoco em público 50+, autonomia, esperança, renovação, inteligência.';
+
+    return ctx_str;
+}
+
+window.copsGenerate = async function() {
+    const raw = document.getElementById('cops-raw-input')?.value?.trim();
+    if (!raw || raw.length < 20) {
+        window.showToast('Cole um documento ou descreva a situação primeiro.', 'warning');
+        return;
+    }
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
+        return;
+    }
+
+    const icon = document.getElementById('cops-generate-icon');
+    const txt = document.getElementById('cops-generate-text');
+    if (icon) icon.textContent = '⏳';
+    if (txt) txt.textContent = 'Analisando...';
+
+    try {
+        const sysPrompt = `Você é um Estrategista Sênior da FNW Assessoria, especialista em diagnóstico organizacional e propostas de assessoria para profissionais e empreendedores 50+.
+
+Sua tarefa é estruturar qualquer situação/documento no framework COPS e gerar hipóteses de entrega baseadas na metodologia FNW.
+
+Responda APENAS em JSON válido com esta estrutura exata:
+{
+  "contexto": "quem é, onde está, qual o cenário atual",
+  "ocorrencia": "o que aconteceu ou está acontecendo",
+  "problema": "a dor real por trás da ocorrência (não o sintoma, o problema raiz)",
+  "solucao_imaginada": "o que o cliente/usuário acha que precisa",
+  "solucao_efetiva": "o que realmente resolve, baseado na metodologia FNW e dados do sistema",
+  "hipoteses": [
+    {"titulo": "Nome curto da hipótese", "descricao": "O que entregaria e como", "tipo": "Assessoria|Mentoria|Consultoria|Comunidade|Projeto"},
+    {"titulo": "...", "descricao": "...", "tipo": "..."},
+    {"titulo": "...", "descricao": "...", "tipo": "..."}
+  ]
+}`;
+
+        const userPrompt = copsBuildContext() + '\n\n=== SITUAÇÃO/DOCUMENTO A ANALISAR ===\n' + raw;
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+
+        const clean = resposta.replace(/```json|```/g,'').trim();
+        copsResultado = JSON.parse(clean);
+
+        // Renderizar resultado
+        document.getElementById('cops-contexto').textContent = copsResultado.contexto || '';
+        document.getElementById('cops-ocorrencia').textContent = copsResultado.ocorrencia || '';
+        document.getElementById('cops-problema').textContent = copsResultado.problema || '';
+        document.getElementById('cops-solucao-imaginada').textContent = copsResultado.solucao_imaginada || '';
+        document.getElementById('cops-solucao-efetiva').textContent = copsResultado.solucao_efetiva || '';
+
+        // Hipóteses selecionáveis
+        copsHipotesesSelecionadas = [];
+        const hipEl = document.getElementById('cops-hipoteses');
+        const tipoColors = { Assessoria:'bg-blue-100 text-blue-700', Mentoria:'bg-purple-100 text-purple-700', Consultoria:'bg-amber-100 text-amber-700', Comunidade:'bg-emerald-100 text-emerald-700', Projeto:'bg-rose-100 text-rose-700' };
+        hipEl.innerHTML = (copsResultado.hipoteses || []).map((h, i) => `
+            <div onclick="window.copsToggleHip(${i}, this)"
+                class="cops-hip flex items-start gap-3 p-4 bg-white border-2 border-violet-100 rounded-2xl cursor-pointer hover:border-violet-400 transition-all">
+                <div class="w-5 h-5 rounded-full border-2 border-violet-300 flex items-center justify-center flex-shrink-0 mt-0.5 cops-check-${i}"></div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <p class="text-xs font-black text-slate-800">${h.titulo}</p>
+                        <span class="text-[8px] font-black px-2 py-0.5 rounded-full ${tipoColors[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 font-medium leading-relaxed">${h.descricao}</p>
+                </div>
+            </div>`).join('');
+
+        document.getElementById('cops-step-input').classList.add('hidden');
+        document.getElementById('cops-step-result').classList.remove('hidden');
+        window.showToast('COPS estruturado com sucesso! ✓');
+
+    } catch(e) {
+        window.showToast('Erro na análise: ' + e.message, 'warning');
+    } finally {
+        if (icon) icon.textContent = '🔬';
+        if (txt) txt.textContent = 'Analisar e Estruturar em COPS';
+    }
+};
+
+window.copsToggleHip = function(idx, el) {
+    const check = el.querySelector('.cops-check-' + idx);
+    const selected = copsHipotesesSelecionadas.includes(idx);
+    if (selected) {
+        copsHipotesesSelecionadas = copsHipotesesSelecionadas.filter(i => i !== idx);
+        el.classList.remove('border-violet-500', 'bg-violet-50');
+        el.classList.add('border-violet-100');
+        if (check) check.innerHTML = '';
+    } else {
+        copsHipotesesSelecionadas.push(idx);
+        el.classList.add('border-violet-500', 'bg-violet-50');
+        el.classList.remove('border-violet-100');
+        if (check) check.innerHTML = '<div class="w-3 h-3 rounded-full bg-violet-500"></div>';
+    }
+};
+
+window.copsGerarProposta = async function() {
+    if (!copsResultado) return;
+    if (copsHipotesesSelecionadas.length === 0) {
+        window.showToast('Selecione pelo menos uma hipótese primeiro.', 'warning');
+        return;
+    }
+    if (!appState.aiConfig?.key) {
+        window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
+        return;
+    }
+
+    const hipSel = copsHipotesesSelecionadas.map(i => copsResultado.hipoteses[i]);
+    const ctx = document.getElementById('selectComunidade')?.value;
+    const ctxNome = (ctx && ctx !== 'null') ? ctx : 'Cliente';
+
+    window.showToast('Gerando proposta...');
+
+    try {
+        const sysPrompt = 'Você é um Consultor Sênior da FNW Assessoria. Gere uma proposta de assessoria profissional, clara e persuasiva baseada no diagnóstico COPS fornecido. Use linguagem direta, empática e orientada a resultados. Formato: texto corrido em HTML simples (use <h3>, <p>, <strong>, <ul>, <li>).';
+
+        const userPrompt = 'DIAGNÓSTICO COPS:\n' +
+            'Contexto: ' + copsResultado.contexto + '\n' +
+            'Problema: ' + copsResultado.problema + '\n' +
+            'Solução Efetiva: ' + copsResultado.solucao_efetiva + '\n\n' +
+            'HIPÓTESES APROVADAS:\n' + hipSel.map(h => '- ' + h.titulo + ': ' + h.descricao).join('\n') + '\n\n' +
+            'Cliente/Contexto: ' + ctxNome + '\n' +
+            copsBuildContext() + '\n\n' +
+            'Gere uma proposta de assessoria completa com: abertura empática, diagnóstico resumido, solução proposta, entregáveis, próximos passos e CTA.';
+
+        const resposta = await window.callAI(userPrompt, sysPrompt);
+
+        const propostaEl = document.getElementById('cops-proposta-content');
+        propostaEl.innerHTML = resposta
+            .replace(/```html|```/g,'')
+            .replace(/\n\n/g,'</p><p>')
+            .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+
+        document.getElementById('cops-step-result').classList.add('hidden');
+        document.getElementById('cops-step-proposta').classList.remove('hidden');
+        window.showToast('Proposta gerada! ✓');
+
+    } catch(e) {
+        window.showToast('Erro ao gerar proposta: ' + e.message, 'warning');
+    }
+};
+
+window.copsCopiar = function() {
+    if (!copsResultado) return;
+    const texto = 'COPS — DIAGNÓSTICO ESTRUTURADO\n\n' +
+        'C — CONTEXTO\n' + copsResultado.contexto + '\n\n' +
+        'O — OCORRÊNCIA\n' + copsResultado.ocorrencia + '\n\n' +
+        'P — PROBLEMA REAL\n' + copsResultado.problema + '\n\n' +
+        'S₁ — SOLUÇÃO IMAGINADA\n' + copsResultado.solucao_imaginada + '\n\n' +
+        'S₂ — SOLUÇÃO EFETIVA (FNW)\n' + copsResultado.solucao_efetiva;
+    navigator.clipboard.writeText(texto).then(() => window.showToast('COPS copiado!'));
+};
+
+window.copsCopiarProposta = function() {
+    const el = document.getElementById('cops-proposta-content');
+    const texto = el ? el.innerText : '';
+    navigator.clipboard.writeText(texto).then(() => window.showToast('Proposta copiada!'));
+};
+
+window.copsReset = function() {
+    copsResultado = null;
+    copsHipotesesSelecionadas = [];
+    document.getElementById('cops-raw-input').value = '';
+    document.getElementById('cops-step-result').classList.add('hidden');
+    document.getElementById('cops-step-proposta').classList.add('hidden');
+    document.getElementById('cops-step-input').classList.remove('hidden');
+};
+
+window.copsVoltarResult = function() {
+    document.getElementById('cops-step-proposta').classList.add('hidden');
+    document.getElementById('cops-step-result').classList.remove('hidden');
 };

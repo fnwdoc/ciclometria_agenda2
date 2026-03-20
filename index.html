@@ -281,6 +281,14 @@
 
                         <div class="border-t border-slate-100 my-1"></div>
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest px-3 pt-1 pb-1">⚙️ Operacional</p>
+                        <button onclick="window.acoesAbrirFerramenta('cops')" id="acoes-menu-cops"
+                            class="acoes-menu-item w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left hover:bg-violet-50 transition-all">
+                            <span>🔬</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[11px] font-black text-slate-700 leading-tight">COPS Engine</p>
+                                <span class="text-[8px] font-black text-emerald-600">✓ Integrado</span>
+                            </div>
+                        </button>
                         <button onclick="window.acoesAbrirFerramenta('assistente')" id="acoes-menu-assistente"
                             class="acoes-menu-item w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left hover:bg-violet-50 transition-all">
                             <span>🧠</span>
@@ -504,6 +512,131 @@
                             </div>
                         </div>
 
+
+
+                        <!-- PAINEL: COPS Engine -->
+                        <div id="acoes-painel-cops" class="hidden glass-panel rounded-[2.5rem] border border-white overflow-hidden">
+                            <div class="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-indigo-50">
+                                <span class="text-xl">🔬</span>
+                                <div>
+                                    <p class="text-sm font-black text-slate-800">COPS Engine</p>
+                                    <p class="text-[9px] font-bold text-violet-500 uppercase tracking-widest">Contexto · Ocorrência · Problema · Solução</p>
+                                </div>
+                                <span class="ml-auto text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg">✓ Integrado</span>
+                            </div>
+
+                            <div class="p-6 space-y-6">
+
+                                <!-- ETAPA 1: Input -->
+                                <div id="cops-step-input" class="space-y-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-7 h-7 rounded-full bg-violet-600 text-white text-xs font-black flex items-center justify-center">1</div>
+                                        <p class="text-xs font-black text-slate-700 uppercase tracking-widest">Cole o documento ou descreva a situação</p>
+                                    </div>
+                                    <textarea id="cops-raw-input" rows="6" placeholder="Cole aqui: escopo, relatório, e-mail, descrição de problema, transcrição de reunião, qualquer texto...&#10;&#10;Ou descreva livremente a situação que precisa ser estruturada."
+                                        class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-medium text-slate-700 outline-none focus:border-violet-400 resize-none transition-all"></textarea>
+
+                                    <!-- Base de conhecimento FNW -->
+                                    <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <p class="text-[10px] font-black text-indigo-700 uppercase tracking-widest">Base de Conhecimento FNW</p>
+                                            <button onclick="window.copsToggleKB()" id="cops-kb-toggle"
+                                                class="text-[9px] font-black text-indigo-500 hover:text-indigo-700">▼ Expandir</button>
+                                        </div>
+                                        <div id="cops-kb-area" class="hidden space-y-2">
+                                            <p class="text-[10px] text-indigo-500 font-medium">Adicione conhecimento da FNW que deve guiar a Solução Efetiva (metodologia, portfólio, casos de referência):</p>
+                                            <textarea id="cops-kb-text" rows="4" placeholder="Ex: Nosso método de assessoria tem 4 fases: Diagnóstico, Estratégia, Implementação, Gestão. Nossos serviços incluem: Mentoria Individual (R$1.400/mês), Mentoria em Grupo (R$762/participante), Comunidade (R$356/mês)..."
+                                                class="w-full bg-white border border-indigo-200 rounded-xl px-4 py-3 text-xs font-medium text-slate-700 outline-none focus:border-indigo-400 resize-none"></textarea>
+                                        </div>
+                                        <!-- Dados do Suite injetados automaticamente -->
+                                        <div class="flex flex-wrap gap-2">
+                                            <span class="text-[9px] font-black text-indigo-400 uppercase">Auto-injetado:</span>
+                                            <span class="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">📍 Contexto ativo</span>
+                                            <span class="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">📊 Business Plan</span>
+                                            <span class="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">🗺️ Esteira</span>
+                                            <span class="text-[9px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">👥 CRM</span>
+                                        </div>
+                                    </div>
+
+                                    <button onclick="window.copsGenerate()"
+                                        class="w-full bg-violet-600 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-violet-700 transition-all shadow-md flex items-center justify-center gap-2">
+                                        <span id="cops-generate-icon">🔬</span>
+                                        <span id="cops-generate-text">Analisar e Estruturar em COPS</span>
+                                    </button>
+                                </div>
+
+                                <!-- ETAPA 2: COPS Estruturado -->
+                                <div id="cops-step-result" class="hidden space-y-4">
+
+                                    <!-- Cards COPS -->
+                                    <div class="grid gap-3">
+                                        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+                                            <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2">C — Contexto</p>
+                                            <p id="cops-contexto" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                        </div>
+                                        <div class="bg-amber-50 border border-amber-100 rounded-2xl p-5">
+                                            <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-2">O — Ocorrência</p>
+                                            <p id="cops-ocorrencia" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                        </div>
+                                        <div class="bg-rose-50 border border-rose-100 rounded-2xl p-5">
+                                            <p class="text-[9px] font-black text-rose-600 uppercase tracking-widest mb-2">P — Problema Real</p>
+                                            <p id="cops-problema" class="text-sm font-medium text-slate-700 leading-relaxed"></p>
+                                        </div>
+                                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                                            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">S₁ — Solução Imaginada (pelo cliente)</p>
+                                            <p id="cops-solucao-imaginada" class="text-sm font-medium text-slate-500 italic leading-relaxed"></p>
+                                        </div>
+                                        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5">
+                                            <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-2">S₂ — Solução Efetiva (FNW)</p>
+                                            <p id="cops-solucao-efetiva" class="text-sm font-medium text-emerald-800 leading-relaxed font-bold"></p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Hipóteses -->
+                                    <div class="bg-violet-50 border border-violet-100 rounded-2xl p-5 space-y-3">
+                                        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">✨ Hipóteses de Entrega FNW</p>
+                                        <p class="text-[10px] text-violet-500 font-medium">Selecione as hipóteses que fazem sentido para este caso:</p>
+                                        <div id="cops-hipoteses" class="space-y-2"></div>
+                                    </div>
+
+                                    <!-- Ações -->
+                                    <div class="flex gap-3 flex-wrap">
+                                        <button onclick="window.copsGerarProposta()"
+                                            class="flex-1 bg-emerald-600 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-md">
+                                            📋 Gerar Proposta de Assessoria
+                                        </button>
+                                        <button onclick="window.copsCopiar()"
+                                            class="bg-white border border-slate-200 text-slate-600 px-5 py-3 rounded-2xl font-black text-xs uppercase hover:bg-slate-50 transition-all">
+                                            📋 Copiar
+                                        </button>
+                                        <button onclick="window.copsReset()"
+                                            class="bg-white border border-slate-200 text-slate-400 px-5 py-3 rounded-2xl font-black text-xs uppercase hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-all">
+                                            ↺ Nova Análise
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- ETAPA 3: Proposta -->
+                                <div id="cops-step-proposta" class="hidden space-y-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center">3</div>
+                                        <p class="text-xs font-black text-slate-700 uppercase tracking-widest">Proposta de Assessoria</p>
+                                    </div>
+                                    <div id="cops-proposta-content" class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 text-sm leading-relaxed text-slate-700"></div>
+                                    <div class="flex gap-3">
+                                        <button onclick="window.copsCopiarProposta()"
+                                            class="flex-1 bg-slate-800 text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all">
+                                            📋 Copiar Proposta
+                                        </button>
+                                        <button onclick="window.copsVoltarResult()"
+                                            class="bg-white border border-slate-200 text-slate-500 px-5 py-3 rounded-2xl font-black text-xs uppercase hover:bg-slate-50 transition-all">
+                                            ← Voltar
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
 
                         <!-- PAINEL: PUV Audit -->
                         <div id="acoes-painel-puv-audit" class="hidden glass-panel rounded-[2.5rem] border border-white overflow-hidden">
@@ -1667,6 +1800,14 @@
 
         <div class="border-t border-slate-100 my-2"></div>
         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 pt-1 pb-1">⚙️ Operacional</p>
+        <button onclick="window.acoesAbrirFerramenta('cops'); window.acoesToggleDrawer();"
+            class="acoes-menu-item w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left hover:bg-violet-50 transition-all">
+            <span>🔬</span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-black text-slate-700">COPS Engine</p>
+                <span class="text-[9px] font-black text-emerald-600">✓ Integrado</span>
+            </div>
+        </button>
         <button onclick="window.acoesAbrirFerramenta('assistente'); window.acoesToggleDrawer();"
             class="acoes-menu-item w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left hover:bg-violet-50 transition-all">
             <span>🧠</span>
