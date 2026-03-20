@@ -4035,7 +4035,7 @@ window.auditExportHTML = function() {
 </head><body class="bg-slate-50 p-10">
 <div class="max-w-[850px] mx-auto bg-white p-12 shadow-2xl rounded-lg">
 <header class="flex justify-between items-start border-b-4 border-[#2D1530] pb-10 mb-10">
-<div><img src="logo.png" class="h-14 mb-4"/>
+<div><img src="https://geriah-suite.vercel.app/logo.png" class="h-14 mb-4"/>
 <h1 class="text-4xl font-black text-[#2D1530] uppercase">${d.alvo.nome}</h1>
 <p class="text-slate-400 font-bold uppercase text-sm">${d.alvo.canal} • Auditoria de Perfil</p></div>
 <div class="text-right"><div class="text-6xl font-black text-[#2D1530]">${d.score_total}<span class="text-slate-200 text-2xl">/${d.score_max}</span></div>
