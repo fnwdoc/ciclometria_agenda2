@@ -4,22 +4,84 @@
 
 // =========================================================================
 // RFY SHELL — LISTENER DE SESSÃO (ROLEFY CENTRIC MODE)
-// Recebe sessão do shell Rolefy via postMessage quando rodando como iframe.
-// Não quebra nada se rodando standalone — é completamente opcional.
 // =========================================================================
 window._rfySession = null;
 window.addEventListener('message', function(e) {
   if (!e.data || e.data.type !== 'RFY_SESSION') return;
   window._rfySession = e.data;
   console.log('[GERiAH] Sessão recebida do Rolefy:', e.data.user || 'anônimo');
-  // Exibe nome do usuário no header se elemento existir
   const userEl = document.getElementById('rfy-user-label');
   if (userEl && e.data.user) userEl.textContent = e.data.user;
-  // Dispara evento interno para módulos que queiram reagir à sessão
   window.dispatchEvent(new CustomEvent('rfy:session', { detail: e.data }));
+  // Tenta carregar do Supabase quando sessão chegar
+  if (e.data.userId) geriahLoadFromSupabase(e.data.userId);
 });
 
+// =========================================================================
+// SUPABASE — PERSISTÊNCIA NA NUVEM
+// =========================================================================
+const GERIAH_SUPABASE_URL  = 'https://zjrczxcprbymqzamatza.supabase.co';
+const GERIAH_SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcmN6eGNwcmJ5bXF6YW1hdHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDgzNTEsImV4cCI6MjA5MDMyNDM1MX0.ERK_P44Rn_3_8aAcqrA7CRB0pBcu4nZToPRiweFiWTo';
 
+async function geriahPersist() {
+  const userId = window._rfySession?.userId;
+  if (!userId) return; // sem sessão — só localStorage
+  const stateToSave = { ...appState };
+  // Serializar moment objects
+  if (stateToSave.currentCycle) {
+    stateToSave.currentCycle = {
+      startDate: stateToSave.currentCycle.startDate?.format?.() || stateToSave.currentCycle.startDate,
+      endDate:   stateToSave.currentCycle.endDate?.format?.()   || stateToSave.currentCycle.endDate,
+    };
+  }
+  try {
+    const token = window._rfySession?.token || null;
+    const headers = {
+      'Content-Type':  'application/json',
+      'apikey':        GERIAH_SUPABASE_ANON,
+      'Authorization': token ? `Bearer ${token}` : `Bearer ${GERIAH_SUPABASE_ANON}`,
+      'Prefer':        'resolution=merge-duplicates',
+    };
+    await fetch(`${GERIAH_SUPABASE_URL}/rest/v1/geriah_data`, {
+      method:  'POST',
+      headers,
+      body: JSON.stringify({ user_id: userId, data: stateToSave, updated_at: new Date().toISOString() }),
+    });
+    console.log('[GERiAH] Estado salvo no Supabase.');
+  } catch(e) {
+    console.warn('[GERiAH] Falha ao salvar no Supabase — usando localStorage.', e);
+  }
+}
+
+async function geriahLoadFromSupabase(userId) {
+  if (!userId) return;
+  try {
+    const token = window._rfySession?.token || null;
+    const headers = {
+      'apikey':        GERIAH_SUPABASE_ANON,
+      'Authorization': token ? `Bearer ${token}` : `Bearer ${GERIAH_SUPABASE_ANON}`,
+    };
+    const res  = await fetch(`${GERIAH_SUPABASE_URL}/rest/v1/geriah_data?user_id=eq.${userId}&select=data`, { headers });
+    const rows = await res.json();
+    if (rows && rows.length > 0 && rows[0].data) {
+      const parsed = rows[0].data;
+      if (parsed.currentCycle) {
+        parsed.currentCycle.startDate = moment(parsed.currentCycle.startDate);
+        parsed.currentCycle.endDate   = moment(parsed.currentCycle.endDate);
+      }
+      appState = { ...appState, ...parsed };
+      // Re-renderiza o app com os dados do Supabase
+      if (typeof renderAll === 'function') renderAll();
+      else if (typeof renderFoco === 'function') { renderFoco(); renderCRM(); renderAgenda(); }
+      console.log('[GERiAH] Estado carregado do Supabase.');
+      window.showToast('Nuvem sincronizada ☁️', 'success');
+    }
+  } catch(e) {
+    console.warn('[GERiAH] Falha ao carregar do Supabase — usando localStorage.', e);
+  }
+}
+
+// =========================================================================
 // CONSTANTS & CONFIGURATION
 // =========================================================================
 
@@ -173,6 +235,8 @@ function saveState() {
     if (!appState.esteiraData) appState.esteiraData = {};
     if (!appState.aiConfig) appState.aiConfig = { provider: 'groq', key: '', model: 'llama-3.3-70b-versatile' };
     localStorage.setItem('geriahSuiteState', JSON.stringify(appState));
+    // Sincroniza com Supabase se sessão Rolefy estiver ativa
+    geriahPersist();
     updateStats();
     updateMetrics();
 }
