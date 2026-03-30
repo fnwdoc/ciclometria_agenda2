@@ -3,6 +3,23 @@
 // =========================================================================
 
 // =========================================================================
+// RFY SHELL — LISTENER DE SESSÃO (ROLEFY CENTRIC MODE)
+// Recebe sessão do shell Rolefy via postMessage quando rodando como iframe.
+// Não quebra nada se rodando standalone — é completamente opcional.
+// =========================================================================
+window._rfySession = null;
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'RFY_SESSION') return;
+  window._rfySession = e.data;
+  console.log('[GERiAH] Sessão recebida do Rolefy:', e.data.user || 'anônimo');
+  // Exibe nome do usuário no header se elemento existir
+  const userEl = document.getElementById('rfy-user-label');
+  if (userEl && e.data.user) userEl.textContent = e.data.user;
+  // Dispara evento interno para módulos que queiram reagir à sessão
+  window.dispatchEvent(new CustomEvent('rfy:session', { detail: e.data }));
+});
+
+
 // CONSTANTS & CONFIGURATION
 // =========================================================================
 
