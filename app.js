@@ -3886,23 +3886,23 @@ window.importLeadsFromExcel = function(evt) {
 };
 
 // =========================================================================
-// PUVZap — Janela popup contida com iframe
+// PUV Score — Janela popup
 // =========================================================================
-window.abrirPUVZap = function() {
+window.abrirPUVScore = function() {
     const w = 480, h = 700;
     const left = screen.width - w - 20;
     const top = 50;
 
-    // Abre WhatsApp Web direto no popup — usuário já logado vai ver o grupo
+    // Abre PUV Score no popup
     const popup = window.open(
-        'https://web.whatsapp.com/accept?code=HYvnmCO2mdT5bcwrXTXo0r',
-        'PUVZap',
+        'https://puv-score.vercel.app/',
+        'PUVScore',
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
         ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no'
     );
 
     if (!popup) {
-        window.open('https://web.whatsapp.com/accept?code=HYvnmCO2mdT5bcwrXTXo0r', '_blank');
+        window.open('https://puv-score.vercel.app/', '_blank');
     } else {
         popup.focus();
     }
@@ -4750,7 +4750,7 @@ const copsEntregaveisFNW = [
     { id: 't5',  grupo: 'GERiAH Suite',   texto: 'Business Plan integrado — planejamento de portfólio, receita máxima, projeção de escala e regra de divisão com múltiplas moedas' },
     { id: 't6',  grupo: 'GERiAH Suite',   texto: 'Esteira de Receita Previsível — mapeamento da jornada LTi→MTi→HTi→DUN com Mapa do Tesouro e Máquina de Próxima Venda' },
     { id: 't7',  grupo: 'GERiAH Suite',   texto: 'Assistente GERiAH com IA — consultor estratégico contextualizado com todos os dados do cliente para suporte contínuo' },
-    { id: 't8',  grupo: 'GERiAH Suite',   texto: 'Acesso à Comunidade PUVZap — grupo exclusivo de suporte, atualizações e troca entre membros da assessoria FNW' },
+    { id: 't8',  grupo: 'GERiAH Suite',   texto: 'Acesso ao PUV Score — diagnóstico de presença digital com scorecard por canal e plano de ação em PDF' },
 ];
 
 let copsEntregaveisSelecionados = new Set();
