@@ -3888,45 +3888,50 @@ window.importLeadsFromExcel = function(evt) {
 // =========================================================================
 // PUV Score — Janela popup
 // =========================================================================
+window._puvScorePopup = null;
 window.abrirPUVScore = function() {
+    if (window._puvScorePopup && !window._puvScorePopup.closed) {
+        window._puvScorePopup.focus();
+        return;
+    }
     const w = 480, h = 700;
     const left = screen.width - w - 20;
     const top = 50;
-
-    // Abre PUV Score no popup
-    const popup = window.open(
+    window._puvScorePopup = window.open(
         'https://puv-score.vercel.app/',
         'PUVScore',
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
         ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no'
     );
-
-    if (!popup) {
+    if (!window._puvScorePopup) {
         window.open('https://puv-score.vercel.app/', '_blank');
     } else {
-        popup.focus();
+        window._puvScorePopup.focus();
     }
 };
 
 // =========================================================================
 // FNW Tools — Janela popup
 // =========================================================================
+window._fnwToolsPopup = null;
 window.abrirFNWTools = function() {
+    if (window._fnwToolsPopup && !window._fnwToolsPopup.closed) {
+        window._fnwToolsPopup.focus();
+        return;
+    }
     const w = 480, h = 700;
     const left = screen.width - w - 20;
     const top = 50;
-
-    const popup = window.open(
+    window._fnwToolsPopup = window.open(
         'https://fnwdoc.github.io/fnwapp21/',
         'FNWTools',
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
         ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no'
     );
-
-    if (!popup) {
+    if (!window._fnwToolsPopup) {
         window.open('https://fnwdoc.github.io/fnwapp21/', '_blank');
     } else {
-        popup.focus();
+        window._fnwToolsPopup.focus();
     }
 };
 
