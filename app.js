@@ -3909,6 +3909,28 @@ window.abrirPUVScore = function() {
 };
 
 // =========================================================================
+// FNW Tools — Janela popup
+// =========================================================================
+window.abrirFNWTools = function() {
+    const w = 480, h = 700;
+    const left = screen.width - w - 20;
+    const top = 50;
+
+    const popup = window.open(
+        'https://fnwdoc.github.io/fnwapp21/',
+        'FNWTools',
+        'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
+        ',resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no'
+    );
+
+    if (!popup) {
+        window.open('https://fnwdoc.github.io/fnwapp21/', '_blank');
+    } else {
+        popup.focus();
+    }
+};
+
+// =========================================================================
 // AÇÕES — PUV Audit (Editor Estratégico GERiAH)
 // =========================================================================
 
