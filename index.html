@@ -1272,52 +1272,73 @@
                             <i class="bi bi-plus-lg me-1"></i> Adicionar Novo Horário
                         </button>
                     </div>
-                    <!-- IA API Key -->
+                    <!-- IA API Key — FNW IA Kit v1.0 -->
                     <div class="pt-6 border-t border-slate-100">
                         <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">🤖 Integração com IA</label>
-                        <div class="space-y-3">
-                            <div>
-                                <label class="text-[9px] text-slate-400 font-black uppercase mb-1 block">Provedor</label>
-                                <select id="settings-ai-provider" onchange="window.settingsUpdateAIProvider(this.value)"
-                                    class="form-select rounded-2xl border-slate-200 py-3 px-4 font-bold text-sm text-slate-700">
-                                    <option value="groq">⚡ Groq — Gratuito, rápido (recomendado)</option>
-                                    <option value="openai">🧠 OpenAI — GPT-4o</option>
-                                    <option value="anthropic">🤖 Anthropic — Claude</option>
-                                </select>
+
+                        <!-- OpenRouter (principal) -->
+                        <div class="space-y-3 mb-4">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[9px] text-slate-500 font-black uppercase tracking-widest">OpenRouter <span class="text-indigo-500">(principal)</span></label>
+                                <a href="https://openrouter.ai/keys" target="_blank" class="text-[9px] font-black text-indigo-500 hover:text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg transition-all">↗ Criar chave</a>
                             </div>
-                            <div>
-                                <label class="text-[9px] text-slate-400 font-black uppercase mb-1 block">API Key</label>
-                                <div class="relative">
-                                    <input type="password" id="settings-ai-key" placeholder="Cole sua API Key aqui..."
-                                        class="form-control rounded-2xl border-slate-200 py-3 px-4 font-mono text-sm pr-12">
-                                    <button type="button" onclick="window.settingsToggleKeyVisibility()"
-                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-all">
-                                        <i id="settings-ai-key-eye" class="bi bi-eye text-lg"></i>
-                                    </button>
-                                </div>
-                                <div id="settings-ai-link" class="mt-2">
-                                    <a href="https://console.groq.com/keys" target="_blank"
-                                        class="text-[10px] font-black text-indigo-500 hover:text-indigo-700 transition-all">
-                                        <i class="bi bi-box-arrow-up-right me-1"></i>Gerar API Key gratuita no Groq →
-                                    </a>
-                                </div>
+                            <div class="relative">
+                                <input type="password" id="ia-openrouter-key" placeholder="sk-or-..."
+                                    oninput="window.iaKit && iaKit.salvarOpenRouterKey()"
+                                    class="form-control rounded-2xl border-slate-200 py-3 px-4 font-mono text-sm">
                             </div>
-                            <div id="settings-ai-model-row">
-                                <label class="text-[9px] text-slate-400 font-black uppercase mb-1 block">Modelo</label>
-                                <select id="settings-ai-model"
-                                    class="form-select rounded-2xl border-slate-200 py-3 px-4 font-bold text-sm text-slate-700">
-                                    <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (recomendado)</option>
-                                    <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (mais rápido)</option>
-                                    <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
-                                    <option value="gemma2-9b-it">gemma2-9b-it</option>
-                                </select>
-                            </div>
-                            <div id="settings-ai-status" class="hidden p-3 rounded-2xl text-[11px] font-bold"></div>
-                            <button type="button" onclick="window.settingsTestAI()"
-                                class="w-full py-2.5 rounded-2xl bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all">
-                                <i class="bi bi-lightning-charge me-1"></i>Testar Conexão
-                            </button>
+                            <span class="ia-key-st text-[10px] font-bold" id="ia-openrouter-status">—</span>
                         </div>
+
+                        <!-- Seletor de modelo -->
+                        <div class="mb-4">
+                            <label class="text-[9px] text-slate-400 font-black uppercase mb-1 block">Modelo</label>
+                            <select id="ia-modelo-select" onchange="window.iaKit && iaKit.salvarModelo()"
+                                class="form-select rounded-2xl border-slate-200 py-3 px-4 font-bold text-sm text-slate-700">
+                                <optgroup label="🆓 Gratuitos">
+                                    <option value="openrouter/free">🔀 Auto — melhor gratuito disponível</option>
+                                    <option value="deepseek/deepseek-r1:free">DeepSeek R1</option>
+                                    <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek V3</option>
+                                    <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B</option>
+                                    <option value="qwen/qwen3-235b-a22b:free">Qwen3 235B</option>
+                                    <option value="mistralai/mistral-small-3.1-24b-instruct:free">Mistral Small 3.1</option>
+                                </optgroup>
+                                <optgroup label="💳 Pagos">
+                                    <option value="deepseek/deepseek-chat">DeepSeek V3 (pago)</option>
+                                    <option value="deepseek/deepseek-r1">DeepSeek R1 (pago)</option>
+                                    <option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option>
+                                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                                </optgroup>
+                            </select>
+                            <span class="text-[9px] text-slate-400 mt-1 block">Modelos gratuitos não precisam de créditos</span>
+                        </div>
+
+                        <!-- Groq direto (fallback) -->
+                        <div class="pt-3 border-t border-slate-100 space-y-2 mb-4">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[9px] text-slate-400 font-black uppercase tracking-widest">Groq <span class="text-slate-300">(fallback)</span></label>
+                                <a href="https://console.groq.com/keys" target="_blank" class="text-[9px] font-black text-slate-400 hover:text-indigo-600 border border-slate-100 px-2 py-0.5 rounded-lg transition-all">↗ Criar chave</a>
+                            </div>
+                            <input type="password" id="ia-groq-key" placeholder="gsk_..."
+                                oninput="window.iaKit && iaKit.salvarGroqKey()"
+                                class="form-control rounded-2xl border-slate-200 py-3 px-4 font-mono text-sm">
+                            <span class="ia-key-st text-[10px] font-bold" id="ia-groq-status">—</span>
+                        </div>
+
+                        <div class="text-[9px] text-slate-400 mb-3">Prioridade: OpenRouter → Groq direto</div>
+
+                        <!-- Status de teste -->
+                        <div id="settings-ai-status" class="hidden p-3 rounded-2xl text-[11px] font-bold mb-3"></div>
+
+                        <button type="button" onclick="window.settingsTestAI()"
+                            class="w-full py-2.5 rounded-2xl bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all">
+                            <i class="bi bi-lightning-charge me-1"></i>Testar Conexão IA
+                        </button>
+
+                        <!-- Campos ocultos para compatibilidade com código legado -->
+                        <input type="hidden" id="settings-ai-provider" value="openrouter">
+                        <input type="hidden" id="settings-ai-key" value="">
+                        <input type="hidden" id="settings-ai-model" value="">
                     </div>
 
                     <div class="pt-6 border-t border-slate-100">

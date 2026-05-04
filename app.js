@@ -1207,6 +1207,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.getElementById('prev-cycle').onclick = () => { appState.currentCycle.startDate.subtract(14, 'days'); appState.currentCycle.endDate.subtract(14, 'days'); renderCalendar(); saveState(); };
+    // Carregar chaves do FNW IA Kit
+    iaKit.carregar();
     // Carregar config de IA ao abrir settings
     loadAISettings();
     document.getElementById('next-cycle').onclick = () => { appState.currentCycle.startDate.add(14, 'days'); appState.currentCycle.endDate.add(14, 'days'); renderCalendar(); saveState(); };
@@ -3102,7 +3104,188 @@ bpUpdateCalcs = function() {
 
 
 // =========================================================================
-// CONFIGURAÇÕES — Integração com IA
+// FNW IA Kit v1.0 — OpenRouter (principal) + Groq (fallback)
+// Integrado ao GERiAH Suite
+// =========================================================================
+
+const iaKit = (() => {
+
+  const PREFIX = 'geriah-ia';
+  const get = k => { try { return localStorage.getItem(`${PREFIX}-${k}`) || ''; } catch(e) { return ''; } };
+  const set = (k, v) => { try { localStorage.setItem(`${PREFIX}-${k}`, v); } catch(e) {} };
+
+  function getOpenRouterKey() { return get('openrouter'); }
+  function getGroqKey()       { return get('groq'); }
+  function getModelo()        { return get('modelo') || 'openrouter/free'; }
+  function getUltimoModelo()  { return window._iaKitUltimoModelo || '—'; }
+
+  function salvarOpenRouterKey() {
+    const k = document.getElementById('ia-openrouter-key')?.value?.trim() || '';
+    set('openrouter', k);
+    const st = document.getElementById('ia-openrouter-status');
+    if (st) { st.textContent = k ? '✓ Salva' : '—'; st.className = 'ia-key-st ' + (k ? 'ok' : ''); }
+    _syncToAppState();
+  }
+
+  function salvarGroqKey() {
+    const k = document.getElementById('ia-groq-key')?.value?.trim() || '';
+    set('groq', k);
+    const st = document.getElementById('ia-groq-status');
+    if (st) { st.textContent = k ? '✓ Salva' : '—'; st.className = 'ia-key-st ' + (k ? 'ok' : ''); }
+    _syncToAppState();
+  }
+
+  function salvarModelo() {
+    const m = document.getElementById('ia-modelo-select')?.value || 'openrouter/free';
+    set('modelo', m);
+    _syncToAppState();
+  }
+
+  // Sincroniza kit → appState.aiConfig para compatibilidade com código legado
+  function _syncToAppState() {
+    if (!window.appState) return;
+    const orKey  = getOpenRouterKey();
+    const gKey   = getGroqKey();
+    const modelo = getModelo();
+    // Determina provedor efetivo para callAI legado
+    if (orKey) {
+      appState.aiConfig = { provider: 'openrouter', key: orKey, model: modelo };
+    } else if (gKey) {
+      appState.aiConfig = { provider: 'groq', key: gKey, model: 'llama-3.3-70b-versatile' };
+    } else {
+      appState.aiConfig = { provider: 'openrouter', key: '', model: modelo };
+    }
+  }
+
+  function carregar() {
+    const or = getOpenRouterKey();
+    if (or) {
+      const el = document.getElementById('ia-openrouter-key');
+      if (el) el.value = or;
+      const st = document.getElementById('ia-openrouter-status');
+      if (st) { st.textContent = '✓ Salva'; st.className = 'ia-key-st ok'; }
+    }
+    const gk = getGroqKey();
+    if (gk) {
+      const el = document.getElementById('ia-groq-key');
+      if (el) el.value = gk;
+      const st = document.getElementById('ia-groq-status');
+      if (st) { st.textContent = '✓ Salva'; st.className = 'ia-key-st ok'; }
+    }
+    const m = getModelo();
+    const sel = document.getElementById('ia-modelo-select');
+    if (sel) sel.value = m;
+    _syncToAppState();
+  }
+
+  function parseJSON(str) {
+    if (!str) throw new Error('Resposta vazia da IA.');
+    try { return JSON.parse(str); } catch(e) {}
+    let s = str.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+    try { return JSON.parse(s); } catch(e) {}
+    const m = s.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (m) try { return JSON.parse(m[1]); } catch(e) {}
+    const blocks = s.match(/\{[\s\S]*?\}/g) || [];
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      try { return JSON.parse(blocks[i]); } catch(e) {}
+    }
+    throw new Error('A IA não retornou JSON válido. Tente reformular ou trocar de modelo.');
+  }
+
+  async function chamar(prompt, systemPrompt = '') {
+    const orKey  = getOpenRouterKey();
+    const groqKey = getGroqKey();
+    if (!orKey && !groqKey) {
+      throw new Error('Configure a chave OpenRouter (ou Groq) nas ⚙️ Configurações.');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      if (orKey) {
+        const modelo = getModelo();
+        const messages = [];
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+        messages.push({ role: 'user', content: prompt });
+
+        const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${orKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.href,
+            'X-Title': document.title
+          },
+          body: JSON.stringify({
+            model: modelo,
+            temperature: 0.4,
+            max_tokens: 2000,
+            messages
+          })
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(`OpenRouter ${r.status}: ${err.error?.message || r.statusText}`);
+        }
+        const d = await r.json();
+        const content = d.choices?.[0]?.message?.content
+                     || d.choices?.[0]?.message?.reasoning
+                     || null;
+        if (!content) throw new Error('Resposta vazia do modelo. Tente outro modelo.');
+        window._iaKitUltimoModelo = d.model || modelo;
+        _syncToAppState();
+        return content;
+
+      } else {
+        // Groq fallback
+        const messages = [];
+        if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+        messages.push({ role: 'user', content: prompt });
+
+        const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.4,
+            max_tokens: 2000,
+            messages
+          })
+        });
+        if (!r.ok) throw new Error(`Groq ${r.status}: ${r.statusText}`);
+        const d = await r.json();
+        const content = d.choices?.[0]?.message?.content || null;
+        if (!content) throw new Error('Resposta vazia do Groq.');
+        window._iaKitUltimoModelo = 'groq/llama-3.3-70b';
+        _syncToAppState();
+        return content;
+      }
+
+    } catch(e) {
+      if (e.name === 'AbortError') {
+        throw new Error('Tempo esgotado (30s). O modelo está lento — tente Auto ou outro modelo mais rápido.');
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return { chamar, parseJSON, carregar, salvarOpenRouterKey, salvarGroqKey, salvarModelo, getUltimoModelo, getOpenRouterKey, getGroqKey, getModelo };
+
+})();
+
+// Carrega chaves salvas ao iniciar (integrado ao DOMContentLoaded abaixo)
+// iaKit.carregar() é chamado dentro do DOMContentLoaded existente
+
+// =========================================================================
+// CONFIGURAÇÕES — Integração com IA (bridge legada → FNW IA Kit)
 // =========================================================================
 
 const aiProviders = {
@@ -3142,111 +3325,47 @@ const aiProviders = {
 };
 
 // Carregar configurações de IA no modal de settings
+// Carregar configurações de IA no modal de settings — agora via iaKit
 function loadAISettings() {
-    const cfg = appState.aiConfig || { provider: 'groq', key: '', model: 'llama-3.3-70b-versatile' };
-    const provSel = document.getElementById('settings-ai-provider');
-    const keySel  = document.getElementById('settings-ai-key');
-    const modSel  = document.getElementById('settings-ai-model');
-    if (provSel) provSel.value = cfg.provider || 'groq';
-    if (keySel)  keySel.value  = cfg.key || '';
-    if (modSel)  modSel.value  = cfg.model || 'llama-3.3-70b-versatile';
-    window.settingsUpdateAIProvider(cfg.provider || 'groq');
+  iaKit.carregar();
 }
 
-window.settingsUpdateAIProvider = function(provider) {
-    const p = aiProviders[provider];
-    if (!p) return;
-    // Atualizar link de geração de key
-    const link = document.getElementById('settings-ai-link');
-    if (link) link.innerHTML = `<a href="${p.keyLink}" target="_blank"
-        class="text-[10px] font-black text-indigo-500 hover:text-indigo-700 transition-all">
-        <i class="bi bi-box-arrow-up-right me-1"></i>${p.keyLabel}</a>`;
-    // Atualizar modelos disponíveis
-    const modSel = document.getElementById('settings-ai-model');
-    if (modSel) {
-        modSel.innerHTML = p.models.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
-        // Restaurar modelo salvo se for do mesmo provedor
-        const saved = appState.aiConfig;
-        if (saved && saved.provider === provider && saved.model) modSel.value = saved.model;
-    }
-    // Limpar status
-    const status = document.getElementById('settings-ai-status');
-    if (status) status.classList.add('hidden');
-};
+// Stub mantido para compatibilidade
+window.settingsUpdateAIProvider = function(provider) {};
 
-window.settingsToggleKeyVisibility = function() {
-    const input = document.getElementById('settings-ai-key');
-    const eye = document.getElementById('settings-ai-key-eye');
-    if (!input) return;
-    const isHidden = input.type === 'password';
-    input.type = isHidden ? 'text' : 'password';
-    if (eye) eye.className = isHidden ? 'bi bi-eye-slash text-lg' : 'bi bi-eye text-lg';
-};
+window.settingsToggleKeyVisibility = function() {};
 
 window.settingsTestAI = async function() {
-    const provider = document.getElementById('settings-ai-provider')?.value || 'groq';
-    const key = document.getElementById('settings-ai-key')?.value?.trim();
-    const model = document.getElementById('settings-ai-model')?.value;
     const status = document.getElementById('settings-ai-status');
-    if (!key) {
-        if (status) { status.textContent = '⚠️ Cole sua API Key antes de testar.'; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200'; status.classList.remove('hidden'); }
+    const orKey  = iaKit.getOpenRouterKey();
+    const gKey   = iaKit.getGroqKey();
+
+    if (!orKey && !gKey) {
+        if (status) { status.textContent = '⚠️ Configure pelo menos uma API Key antes de testar.'; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200'; status.classList.remove('hidden'); }
         return;
     }
     if (status) { status.textContent = '⏳ Testando conexão...'; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-200'; status.classList.remove('hidden'); }
     try {
-        const p = aiProviders[provider];
-        const ok = await testAIConnection(provider, key, model);
-        if (ok) {
-            if (status) { status.textContent = '✅ Conexão bem-sucedida! IA pronta para uso.'; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200'; }
-        } else {
-            if (status) { status.textContent = '❌ Falha na conexão. Verifique sua API Key.'; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200'; }
+        const resp = await iaKit.chamar('Responda apenas: ok');
+        if (resp) {
+            if (status) { status.textContent = `✅ Conexão bem-sucedida via ${iaKit.getUltimoModelo()}!`; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200'; }
         }
     } catch(e) {
-        if (status) { status.textContent = '❌ Erro: ' + e.message; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200'; }
+        if (status) { status.textContent = '❌ ' + e.message; status.className = 'p-3 rounded-2xl text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200'; }
     }
 };
 
-async function testAIConnection(provider, key, model) {
-    const p = aiProviders[provider];
-    const body = provider === 'anthropic'
-        ? { model, max_tokens: 10, messages: [{ role: 'user', content: 'Responda apenas: ok' }] }
-        : { model, max_tokens: 10, messages: [{ role: 'user', content: 'Responda apenas: ok' }] };
-    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key };
-    if (provider === 'anthropic') headers['anthropic-version'] = '2023-06-01';
-    const res = await fetch(p.url, { method: 'POST', headers, body: JSON.stringify(body) });
-    return res.ok;
-}
-
-// Salvar config de IA junto com o resto das settings
+// Salvar config de IA — delega ao iaKit (persiste em localStorage, não no backup)
 function saveAIConfig() {
-    const provider = document.getElementById('settings-ai-provider')?.value || 'groq';
-    const key      = document.getElementById('settings-ai-key')?.value?.trim() || '';
-    const model    = document.getElementById('settings-ai-model')?.value || '';
-    if (!appState.aiConfig) appState.aiConfig = {};
-    appState.aiConfig = { provider, key, model };
-    saveState();
+  iaKit.salvarOpenRouterKey();
+  iaKit.salvarGroqKey();
+  iaKit.salvarModelo();
 }
-
-// Expor função para chamar de fora — chamada no save-settings existente
 window.saveAIConfig = saveAIConfig;
 
-// Função pública para ferramentas de IA chamarem
+// Função pública de chamada de IA — usa iaKit como provedor principal
 window.callAI = async function(prompt, systemPrompt = '') {
-    const cfg = appState.aiConfig;
-    if (!cfg || !cfg.key) throw new Error('Configure sua API Key nas Configurações.');
-    const p = aiProviders[cfg.provider || 'groq'];
-    const messages = [];
-    if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
-    messages.push({ role: 'user', content: prompt });
-    const body = { model: cfg.model, max_tokens: 3000, messages };
-    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key };
-    if (cfg.provider === 'anthropic') headers['anthropic-version'] = '2023-06-01';
-    const res = await fetch(p.url, { method: 'POST', headers, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error('Erro na API de IA: ' + res.status);
-    const data = await res.json();
-    return cfg.provider === 'anthropic'
-        ? data.content?.[0]?.text || ''
-        : data.choices?.[0]?.message?.content || '';
+    return await iaKit.chamar(prompt, systemPrompt);
 };
 
 // =========================================================================

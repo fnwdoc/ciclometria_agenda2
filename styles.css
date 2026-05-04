@@ -667,3 +667,10 @@ body {
     box-shadow: 0 0 0 2px rgba(67,97,238,0.1);
 }
 .acoes-menu-item.active p { color: #4361ee !important; }
+
+/* =========================================================================
+   FNW IA Kit v1.0 — Indicadores de status de chave
+   ========================================================================= */
+.ia-key-st { display: block; margin-top: 4px; }
+.ia-key-st.ok  { color: #4CAF50; font-weight: 800; }
+.ia-key-st.err { color: #E05050; font-weight: 800; }
