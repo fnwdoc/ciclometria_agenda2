@@ -3575,14 +3575,14 @@ window.assistenteEnviar = async function() {
         ];
 
         // Chamar IA via iaKit (suporta OpenRouter + Groq automaticamente)
-        const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
+        const assistenteSysPrompt = messages.find(m => m.role === 'system')?.content || '';
         const userMessages = messages.filter(m => m.role !== 'system');
-        // Reconstruir prompt completo para iaKit (passa histórico como contexto no system)
+        // Reconstruir prompt com histórico como contexto
         const historicoCtx = userMessages.slice(0, -1).map(m => `[${m.role}]: ${m.content}`).join('\n');
         const ultimoUser = userMessages[userMessages.length - 1]?.content || '';
         const promptFinal = historicoCtx ? `${historicoCtx}\n\n[user]: ${ultimoUser}` : ultimoUser;
 
-        const resposta = await iaKit.chamar(promptFinal, systemPrompt);
+        const resposta = await iaKit.chamar(promptFinal, assistenteSysPrompt);
 
         document.getElementById('assistente-loading')?.remove();
 
