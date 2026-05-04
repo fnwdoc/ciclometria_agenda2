@@ -1207,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.getElementById('prev-cycle').onclick = () => { appState.currentCycle.startDate.subtract(14, 'days'); appState.currentCycle.endDate.subtract(14, 'days'); renderCalendar(); saveState(); };
-    // Carregar chaves do FNW IA Kit
+    // Carregar chaves do FNW IA Kit e sincronizar com appState
     iaKit.carregar();
     // Carregar config de IA ao abrir settings
     loadAISettings();
@@ -1244,6 +1244,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('confirmDeleteBtn')?.addEventListener('click', window.confirmDelete);
 
     loadState();
+    // Re-sincronizar iaKit → appState após loadState (loadState pode sobrescrever aiConfig sem key)
+    iaKit.syncToAppState();
 });
 
 function renderTimeSlotSettings() {
@@ -3277,7 +3279,7 @@ const iaKit = (() => {
     }
   }
 
-  return { chamar, parseJSON, carregar, salvarOpenRouterKey, salvarGroqKey, salvarModelo, getUltimoModelo, getOpenRouterKey, getGroqKey, getModelo };
+  return { chamar, parseJSON, carregar, salvarOpenRouterKey, salvarGroqKey, salvarModelo, getUltimoModelo, getOpenRouterKey, getGroqKey, getModelo, syncToAppState: _syncToAppState };
 
 })();
 
@@ -3553,7 +3555,7 @@ window.assistenteEnviar = async function() {
     if (!texto) return;
 
     // Verificar se tem API Key
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure sua API Key nas ⚙️ Configurações para usar o assistente.', 'warning');
         return;
     }
@@ -3572,24 +3574,17 @@ window.assistenteEnviar = async function() {
             ...assistenteHistory
         ];
 
-        // Chamar IA diretamente (não via window.callAI para ter controle do histórico)
-        const cfg = appState.aiConfig;
-        const p = aiProviders[cfg.provider || 'groq'];
-        const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.key };
-        if (cfg.provider === 'anthropic') headers['anthropic-version'] = '2023-06-01';
-        const res = await fetch(p.url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ model: cfg.model, max_tokens: 1500, messages })
-        });
+        // Chamar IA via iaKit (suporta OpenRouter + Groq automaticamente)
+        const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
+        const userMessages = messages.filter(m => m.role !== 'system');
+        // Reconstruir prompt completo para iaKit (passa histórico como contexto no system)
+        const historicoCtx = userMessages.slice(0, -1).map(m => `[${m.role}]: ${m.content}`).join('\n');
+        const ultimoUser = userMessages[userMessages.length - 1]?.content || '';
+        const promptFinal = historicoCtx ? `${historicoCtx}\n\n[user]: ${ultimoUser}` : ultimoUser;
+
+        const resposta = await iaKit.chamar(promptFinal, systemPrompt);
 
         document.getElementById('assistente-loading')?.remove();
-
-        if (!res.ok) throw new Error('Erro na API: ' + res.status);
-        const data = await res.json();
-        const resposta = cfg.provider === 'anthropic'
-            ? data.content?.[0]?.text || ''
-            : data.choices?.[0]?.message?.content || '';
 
         assistenteHistory.push({ role: 'assistant', content: resposta });
         assistenteRenderMessages();
@@ -4225,7 +4220,7 @@ window.auditUpdateAction = function(idx, val) {
 
 window.auditGenerateAI = async function() {
     if (!window.auditData) return;
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações primeiro.', 'warning');
         return;
     }
@@ -4394,7 +4389,7 @@ window.copsGenerate = async function() {
         window.showToast('Cole um documento ou descreva a situação primeiro.', 'warning');
         return;
     }
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
         return;
     }
@@ -4502,7 +4497,7 @@ window.copsGerarProposta = async function() {
         window.showToast('Selecione pelo menos uma hipótese primeiro.', 'warning');
         return;
     }
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
         return;
     }
@@ -4694,7 +4689,7 @@ window.copsRefinar = async function() {
         window.showToast('Descreva o que quer refinar na proposta.', 'warning');
         return;
     }
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
         return;
     }
@@ -4778,7 +4773,7 @@ window.copsUpdateField = function(field, val) {
 // Refinar campo específico com IA
 window.copsRefinarCampo = async function(campo) {
     if (!copsResultado) return;
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
         return;
     }
@@ -4830,7 +4825,7 @@ window.copsUpdateHip = function(idx, field, val) {
 // Refinar hipótese individual com IA
 window.copsRefinarHip = async function(idx) {
     if (!copsResultado || !copsResultado.hipoteses[idx]) return;
-    if (!appState.aiConfig?.key) {
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) {
         window.showToast('Configure a API Key nas ⚙️ Configurações.', 'warning');
         return;
     }
@@ -5334,7 +5329,7 @@ window.simGerarResumoTexto = function() {
 };
 
 window.simGerarResumoIA = async function() {
-    if (!appState.aiConfig?.key) { window.showToast('Configure a API Key.', 'warning'); return; }
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) { window.showToast('Configure a API Key.', 'warning'); return; }
     const checked = simBlocos.filter(b => b.checked);
     if (!checked.length) { window.showToast('Selecione pelo menos um bloco.', 'warning'); return; }
     window.showToast('Gerando resumo com IA...');
@@ -5381,7 +5376,7 @@ window.simPuxarCtxCOPS = function() {
 window.simGerarHTMLCliente = async function() {
     const ctx = document.getElementById('sim-ctx-cliente')?.value?.trim();
     if (!ctx || ctx.length < 20) { window.showToast('Descreva o contexto do cliente primeiro.', 'warning'); return; }
-    if (!appState.aiConfig?.key) { window.showToast('Configure a API Key.', 'warning'); return; }
+    if (!(appState.aiConfig?.key || iaKit.getOpenRouterKey() || iaKit.getGroqKey())) { window.showToast('Configure a API Key.', 'warning'); return; }
 
     const icon = document.getElementById('sim-gerar-icon');
     const txt  = document.getElementById('sim-gerar-text');
